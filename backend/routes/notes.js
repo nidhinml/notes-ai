@@ -53,6 +53,43 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT /api/notes/:id - update a note and its embeddings
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, content } = req.body;
+
+  if (!title || !content) {
+    return res.status(400).json({ error: 'Title and content are required' });
+  }
+
+  try {
+    // Generate embedding from content
+    const embedding = await embedText(content);
+    const embeddingStr = `[${embedding.join(',')}]`;
+
+    const result = await sql(
+      `UPDATE notes 
+       SET title = $1, content = $2, chunk_text = $3, embedding = $4::vector, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $5 AND user_id = $6 
+       RETURNING id, title, content, created_at`,
+      [title, content, content, embeddingStr, id, DEFAULT_USER_ID]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'Note not found or unauthorized' });
+    }
+
+    res.json(result[0]);
+  } catch (error) {
+    console.error('Error updating note:', error);
+    const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
+    const message = isApiKeyError
+      ? 'Invalid Gemini API key configured in backend/.env. Please replace it with a valid key.'
+      : 'Failed to update note';
+    res.status(500).json({ error: message });
+  }
+});
+
 // DELETE /api/notes/:id - delete a note by id and user_id
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;

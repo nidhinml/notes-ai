@@ -1,12 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export default function NoteEditor({ onNoteAdded }) {
+export default function NoteEditor({ selectedNote, onNoteAdded, onNoteUpdated, onCancelEdit }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+
+  // Load note values when selectedNote changes
+  useEffect(() => {
+    if (selectedNote) {
+      setTitle(selectedNote.title || '');
+      setContent(selectedNote.content || '');
+      setError(null);
+      setSuccess(false);
+    } else {
+      setTitle('');
+      setContent('');
+    }
+  }, [selectedNote]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,15 +30,27 @@ export default function NoteEditor({ onNoteAdded }) {
     setSuccess(false);
 
     try {
-      const response = await axios.post('/api/notes', {
-        title: title.trim(),
-        content: content.trim()
-      });
+      if (selectedNote) {
+        // Update mode
+        const response = await axios.put(`/api/notes/${selectedNote.id}`, {
+          title: title.trim(),
+          content: content.trim()
+        });
 
-      setSuccess(true);
-      setTitle('');
-      setContent('');
-      onNoteAdded(response.data);
+        setSuccess(true);
+        onNoteUpdated(response.data);
+      } else {
+        // Create mode
+        const response = await axios.post('/api/notes', {
+          title: title.trim(),
+          content: content.trim()
+        });
+
+        setSuccess(true);
+        setTitle('');
+        setContent('');
+        onNoteAdded(response.data);
+      }
 
       // Hide success message after 3 seconds
       setTimeout(() => {
@@ -41,9 +66,20 @@ export default function NoteEditor({ onNoteAdded }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-      <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
-        <span className="text-purple-600">✍️</span> New Note
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <span className="text-purple-600">✍️</span> {selectedNote ? 'Edit Note' : 'New Note'}
+        </h2>
+        {selectedNote && (
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="text-xs text-purple-600 hover:text-purple-800 font-semibold transition"
+          >
+            Cancel Edit
+          </button>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* Title Field */}
@@ -105,10 +141,10 @@ export default function NoteEditor({ onNoteAdded }) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              Saving Note...
+              {selectedNote ? 'Updating Note...' : 'Saving Note...'}
             </>
           ) : (
-            'Save Note'
+            selectedNote ? 'Update Note' : 'Save Note'
           )}
         </button>
       </form>

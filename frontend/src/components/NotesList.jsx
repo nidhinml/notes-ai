@@ -1,7 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 
-export default function NotesList({ notes, loading, error, onNoteDeleted }) {
+export default function NotesList({ notes, loading, error, selectedNoteId, onSelectNote, onNoteDeleted }) {
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this note?')) return;
@@ -71,7 +71,12 @@ export default function NotesList({ notes, loading, error, onNoteDeleted }) {
           notes.map((note) => (
             <div
               key={note.id}
-              className="p-4 hover:bg-slate-50 transition flex justify-between items-start gap-4 group"
+              onClick={() => onSelectNote(note)}
+              className={`p-4 cursor-pointer transition flex justify-between items-start gap-4 group ${
+                note.id === selectedNoteId 
+                  ? 'bg-purple-50/70 border-l-4 border-l-purple-600' 
+                  : 'hover:bg-slate-50'
+              }`}
             >
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-bold text-slate-800 truncate mb-1">

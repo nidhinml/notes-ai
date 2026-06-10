@@ -9,6 +9,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [selectedNote, setSelectedNote] = useState(null);
+
   // Fetch all notes from API on mount
   const fetchNotes = async () => {
     setLoading(true);
@@ -33,8 +35,18 @@ export default function App() {
     setNotes((prevNotes) => [newNote, ...prevNotes]);
   };
 
+  const handleNoteUpdated = (updatedNote) => {
+    setNotes((prevNotes) =>
+      prevNotes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
+    );
+    setSelectedNote(null); // clear edit state on save
+  };
+
   const handleNoteDeleted = (deletedNoteId) => {
     setNotes((prevNotes) => prevNotes.filter((note) => note.id !== deletedNoteId));
+    if (selectedNote?.id === deletedNoteId) {
+      setSelectedNote(null);
+    }
   };
 
   return (
@@ -53,12 +65,19 @@ export default function App() {
       <main className="flex-1 flex flex-col md:flex-row max-h-[calc(100vh-73px)] overflow-hidden">
         {/* Left Column (40% width on Desktop, full width on Mobile) */}
         <section className="w-full md:w-[40%] border-r border-slate-200 bg-white flex flex-col overflow-y-auto p-6 gap-6">
-          <NoteEditor onNoteAdded={handleNoteAdded} />
+          <NoteEditor 
+            selectedNote={selectedNote} 
+            onNoteAdded={handleNoteAdded} 
+            onNoteUpdated={handleNoteUpdated}
+            onCancelEdit={() => setSelectedNote(null)}
+          />
           
           <NotesList 
             notes={notes} 
             loading={loading} 
             error={error} 
+            selectedNoteId={selectedNote?.id}
+            onSelectNote={setSelectedNote}
             onNoteDeleted={handleNoteDeleted} 
           />
         </section>
