@@ -1,0 +1,23 @@
+{
+  "name": "notes-ai-backend",
+  "version": "1.0.0",
+  "description": "Backend for Personal Notes AI Assistant with RAG, users and pgvector",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.52.0",
+    "uuid": "^10.0.0",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
