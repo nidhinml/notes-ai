@@ -14,6 +14,9 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
 
+  // ----- Theme state -----
+  const [theme, setTheme] = useState(() => localStorage.getItem('notes_ai_theme') || 'dark');
+
   // ----- Notes panel state -----
   const [notesOpen, setNotesOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('list'); // 'add' | 'list'
@@ -23,6 +26,12 @@ export default function App() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesError, setNotesError] = useState(null);
   const [selectedNote, setSelectedNote] = useState(null);
+
+  // Apply theme to document element
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('notes_ai_theme', theme);
+  }, [theme]);
 
   // -------------------------------------------------------
   // Auto-validate stored key on mount
@@ -119,6 +128,10 @@ export default function App() {
     setSelectedNote(null);
   };
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
   return (
     <div className="app-shell">
       {/* ============ SECRET KEY MODAL ============ */}
@@ -141,6 +154,16 @@ export default function App() {
         </div>
 
         <div className="header-actions">
+          {/* Theme Toggle Button */}
+          <button
+            className="btn-theme-toggle"
+            onClick={toggleTheme}
+            id="btn-theme-toggle"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          >
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
+
           {isAuthenticated && (
             <span className="user-key-tag">
               🔑 {secretKey.length > 10 ? secretKey.substring(0, 10) + '…' : secretKey}
