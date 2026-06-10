@@ -50,7 +50,7 @@ export async function askLLM(question, contextChunks) {
       ? contextChunks.map(chunk => `Note: ${chunk.title}\n${chunk.chunk_text}`).join('\n\n---\n\n')
       : 'No context notes provided.';
 
-    const systemPrompt = "You are a personal assistant. Answer the user's question using ONLY the notes provided as context. If the answer is not found in the notes, say so clearly. Always be concise and helpful.";
+    const systemPrompt = "You are a personal assistant. Answer the user's question using the notes provided as context. If the question requires date calculations, calendar math, or logical reasoning based on facts retrieved from the notes (such as computing age, days of the week, or simple calculations), you are encouraged to compute the answer yourself using your general knowledge. If the core fact is not in the notes, say so clearly. Always be concise and helpful.";
 
     const userContent = `Context:\n"""\n${formattedChunks}\n"""\n\nQuestion: ${question}`;
 
