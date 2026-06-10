@@ -1,19 +1,31 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-export default function NotesList({ notes, loading, error, selectedNoteId, onSelectNote, onNoteDeleted }) {
+export default function NotesList({ notes, loading, error, selectedNoteId, onEditNote, onNoteDeleted, secretKey }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
+
+  const headers = { 'x-secret-key': secretKey || '' };
+
   const handleDelete = async (e, id) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this note?')) return;
+    if (!window.confirm('Delete this note? This cannot be undone.')) return;
 
+    setDeletingId(id);
     try {
-      await axios.delete(`/api/notes/${id}`);
+      await axios.delete(`/api/notes/${id}`, { headers });
       onNoteDeleted(id);
     } catch (err) {
       console.error('Error deleting note:', err);
       alert(err.response?.data?.error || 'Failed to delete note. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
+  };
+
+  const handleEdit = (e, note) => {
+    e.stopPropagation();
+    onEditNote(note);
   };
 
   const formatDate = (dateString) => {
@@ -23,103 +35,92 @@ export default function NotesList({ notes, loading, error, selectedNoteId, onSel
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
-  const truncateText = (text, maxLength) => {
-    if (!text) return '';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-  };
+  const truncate = (text, max) =>
+    text && text.length > max ? text.substring(0, max) + '…' : text;
 
-  const filteredNotes = notes.filter(note => 
-    note.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredNotes = notes.filter(note =>
+    note.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     note.content?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Title with count badge */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-md font-bold text-slate-700 uppercase tracking-wider">
-          My Notes
-        </h2>
-        <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-          {notes.length}
-        </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Header with count */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span className="form-label" style={{ margin: 0 }}>All Notes</span>
+        <span className="notes-count-badge">{notes.length}</span>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
+      {/* Search */}
+      <div className="notes-search">
+        <span className="notes-search-icon">🔍</span>
         <input
+          id="notes-search-input"
           type="text"
-          placeholder="Search notes by title or keyword..."
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 pl-9 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition bg-slate-50"
+          className="notes-search-input"
+          placeholder="Search by title or keyword…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
       </div>
 
-      {/* Main List */}
-      <div className="max-h-[400px] overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col divide-y divide-slate-100">
-        {loading ? (
-          /* Loading Skeletons */
-          <div className="p-4 flex flex-col gap-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse flex flex-col gap-2">
-                <div className="h-4 bg-slate-200 rounded w-1/3"></div>
-                <div className="h-3 bg-slate-100 rounded w-full"></div>
-                <div className="h-3 bg-slate-100 rounded w-5/6"></div>
-              </div>
-            ))}
-          </div>
-        ) : error ? (
-          <div className="p-6 text-center text-xs text-rose-500">
-            ⚠ {error}
-          </div>
-        ) : filteredNotes.length === 0 ? (
-          /* Empty State */
-          <div className="p-8 text-center text-slate-400 text-sm">
-            {searchQuery ? 'No matching notes found.' : 'No notes yet. Add your first note above!'}
-          </div>
-        ) : (
-          /* Note Cards */
-          filteredNotes.map((note) => (
+      {/* List */}
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="skeleton" style={{ height: '13px', width: '45%' }} />
+              <div className="skeleton" style={{ height: '11px', width: '90%' }} />
+              <div className="skeleton" style={{ height: '11px', width: '70%' }} />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="status-alert error">{error}</div>
+      ) : filteredNotes.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">{searchQuery ? '🔎' : '📝'}</div>
+          <p>{searchQuery ? 'No notes match your search.' : 'No notes yet. Go to "Add Note" to create your first!'}</p>
+        </div>
+      ) : (
+        <div className="notes-list">
+          {filteredNotes.map(note => (
             <div
               key={note.id}
-              onClick={() => onSelectNote(note)}
-              className={`p-4 cursor-pointer transition flex justify-between items-start gap-4 group ${
-                note.id === selectedNoteId 
-                  ? 'bg-purple-50/70 border-l-4 border-l-purple-600' 
-                  : 'hover:bg-slate-50'
-              }`}
+              className={`note-card ${note.id === selectedNoteId ? 'selected' : ''}`}
+              onClick={() => onEditNote(note)}
             >
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-slate-800 truncate mb-1">
-                  {note.title || 'Untitled Note'}
-                </h3>
-                <p className="text-xs text-slate-500 leading-relaxed mb-2 break-words">
-                  {truncateText(note.content, 120)}
-                </p>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {formatDate(note.created_at)}
-                </span>
+              <div className="note-card-title">{note.title || 'Untitled Note'}</div>
+              <div className="note-card-content">{truncate(note.content, 110)}</div>
+              <div className="note-card-footer">
+                <span className="note-card-date">{formatDate(note.created_at)}</span>
+                <div className="note-card-actions">
+                  <button
+                    className="btn-icon edit"
+                    title="Edit note"
+                    onClick={(e) => handleEdit(e, note)}
+                    id={`btn-edit-note-${note.id}`}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="btn-icon delete"
+                    title="Delete note"
+                    onClick={(e) => handleDelete(e, note.id)}
+                    disabled={deletingId === note.id}
+                    id={`btn-delete-note-${note.id}`}
+                  >
+                    {deletingId === note.id ? '…' : '🗑'}
+                  </button>
+                </div>
               </div>
-
-              {/* Unicode Cross Delete Button */}
-              <button
-                onClick={(e) => handleDelete(e, note.id)}
-                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-lg font-bold w-6 h-6 flex items-center justify-center rounded transition md:opacity-0 group-hover:opacity-100"
-                title="Delete note"
-              >
-                &times;
-              </button>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

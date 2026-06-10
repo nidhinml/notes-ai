@@ -1,91 +1,233 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import './App.css';
+import ChatBox from './components/ChatBox';
 import NoteEditor from './components/NoteEditor';
 import NotesList from './components/NotesList';
-import ChatBox from './components/ChatBox';
+import SecretKeyModal from './components/SecretKeyModal';
+
+const STORAGE_KEY = 'notes_ai_secret_key';
 
 export default function App() {
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // ----- Auth state -----
+  const [secretKey, setSecretKey] = useState(() => localStorage.getItem(STORAGE_KEY) || '');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
 
+  // ----- Notes panel state -----
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('list'); // 'add' | 'list'
+
+  // ----- Notes data -----
+  const [notes, setNotes] = useState([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState(null);
   const [selectedNote, setSelectedNote] = useState(null);
 
-  // Fetch all notes from API on mount
-  const fetchNotes = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get('/api/notes');
-      setNotes(response.data);
-    } catch (err) {
-      console.error('Error fetching notes:', err);
-      setError('Failed to fetch notes. Please check if the server is running.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // -------------------------------------------------------
+  // Auto-validate stored key on mount
+  // -------------------------------------------------------
   useEffect(() => {
-    fetchNotes();
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      validateKey(stored, true);
+    }
   }, []);
 
-  const handleNoteAdded = (newNote) => {
-    // Insert new note at the beginning (since sorted by created_at DESC)
-    setNotes((prevNotes) => [newNote, ...prevNotes]);
-  };
-
-  const handleNoteUpdated = (updatedNote) => {
-    setNotes((prevNotes) =>
-      prevNotes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
-    );
-    setSelectedNote(null); // clear edit state on save
-  };
-
-  const handleNoteDeleted = (deletedNoteId) => {
-    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== deletedNoteId));
-    if (selectedNote?.id === deletedNoteId) {
-      setSelectedNote(null);
+  const validateKey = async (key, silent = false) => {
+    try {
+      await axios.post('/api/auth/validate', { secretKey: key });
+      setSecretKey(key);
+      localStorage.setItem(STORAGE_KEY, key);
+      setIsAuthenticated(true);
+      setShowKeyModal(false);
+      return true;
+    } catch (err) {
+      if (!silent) throw err;
+      return false;
     }
+  };
+
+  // -------------------------------------------------------
+  // Fetch notes (only when authenticated)
+  // -------------------------------------------------------
+  const fetchNotes = useCallback(async () => {
+    if (!secretKey) return;
+    setNotesLoading(true);
+    setNotesError(null);
+    try {
+      const { data } = await axios.get('/api/notes', {
+        headers: { 'x-secret-key': secretKey }
+      });
+      setNotes(data);
+    } catch (err) {
+      console.error('Error fetching notes:', err);
+      setNotesError('Failed to load notes.');
+    } finally {
+      setNotesLoading(false);
+    }
+  }, [secretKey]);
+
+  useEffect(() => {
+    if (isAuthenticated) fetchNotes();
+  }, [isAuthenticated, fetchNotes]);
+
+  // -------------------------------------------------------
+  // Notes CRUD handlers
+  // -------------------------------------------------------
+  const handleNoteAdded = (newNote) => {
+    setNotes(prev => [newNote, ...prev]);
+    setActiveTab('list');
+  };
+
+  const handleNoteUpdated = (updated) => {
+    setNotes(prev => prev.map(n => n.id === updated.id ? updated : n));
+    setSelectedNote(null);
+    setActiveTab('list');
+  };
+
+  const handleNoteDeleted = (id) => {
+    setNotes(prev => prev.filter(n => n.id !== id));
+    if (selectedNote?.id === id) setSelectedNote(null);
+  };
+
+  const handleEditNote = (note) => {
+    setSelectedNote(note);
+    setActiveTab('add');
+  };
+
+  // -------------------------------------------------------
+  // Open notes panel: prompt for key if not authenticated
+  // -------------------------------------------------------
+  const handleOpenNotes = () => {
+    if (!isAuthenticated) {
+      setShowKeyModal(true);
+    } else {
+      setNotesOpen(prev => !prev);
+    }
+  };
+
+  // -------------------------------------------------------
+  // Logout
+  // -------------------------------------------------------
+  const handleLogout = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setSecretKey('');
+    setIsAuthenticated(false);
+    setNotesOpen(false);
+    setNotes([]);
+    setSelectedNote(null);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl" role="img" aria-label="notes">📝</span>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Notes AI Assistant
-          </h1>
+    <div className="app-shell">
+      {/* ============ SECRET KEY MODAL ============ */}
+      {showKeyModal && (
+        <SecretKeyModal
+          onSuccess={(key) => {
+            validateKey(key).then(() => {
+              setNotesOpen(true);
+            }).catch(() => {});
+          }}
+          onClose={() => setShowKeyModal(false)}
+        />
+      )}
+
+      {/* ============ HEADER ============ */}
+      <header className="app-header">
+        <div className="app-header-brand">
+          <div className="app-header-logo">🤖</div>
+          <span className="app-header-title">Notes AI</span>
+        </div>
+
+        <div className="header-actions">
+          {isAuthenticated && (
+            <span className="user-key-tag">
+              🔑 {secretKey.length > 10 ? secretKey.substring(0, 10) + '…' : secretKey}
+            </span>
+          )}
+          <button
+            className="btn-notes-toggle"
+            onClick={handleOpenNotes}
+            id="btn-toggle-notes"
+            title={isAuthenticated ? 'Toggle Notes Panel' : 'Unlock Notes with Secret Key'}
+          >
+            {isAuthenticated ? (notesOpen ? '✕ Close Notes' : '📝 My Notes') : '🔒 Notes'}
+          </button>
+          {isAuthenticated && (
+            <button className="btn-logout" onClick={handleLogout} id="btn-logout">
+              Logout
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Main Layout Area */}
-      <main className="flex-1 flex flex-col md:flex-row max-h-[calc(100vh-73px)] overflow-hidden">
-        {/* Left Column (40% width on Desktop, full width on Mobile) */}
-        <section className="w-full md:w-[40%] border-r border-slate-200 bg-white flex flex-col overflow-y-auto p-6 gap-6">
-          <NoteEditor 
-            selectedNote={selectedNote} 
-            onNoteAdded={handleNoteAdded} 
-            onNoteUpdated={handleNoteUpdated}
-            onCancelEdit={() => setSelectedNote(null)}
-          />
-          
-          <NotesList 
-            notes={notes} 
-            loading={loading} 
-            error={error} 
-            selectedNoteId={selectedNote?.id}
-            onSelectNote={setSelectedNote}
-            onNoteDeleted={handleNoteDeleted} 
-          />
-        </section>
+      {/* ============ MAIN ============ */}
+      <main className="app-main">
+        {/* Chat Panel — always visible */}
+        <div className="chat-panel">
+          <ChatBox secretKey={secretKey} />
+        </div>
 
-        {/* Right Column (60% width on Desktop, full width on Mobile) */}
-        <section className="w-full md:w-[60%] bg-slate-50 flex flex-col h-full overflow-hidden">
-          <ChatBox />
-        </section>
+        {/* Notes Panel — slides in when open */}
+        <aside className={`notes-panel ${notesOpen ? 'open' : ''}`}>
+          <div className="notes-panel-inner">
+            <div className="notes-panel-header">
+              <h2>
+                <span>📝</span> My Notes
+              </h2>
+              <button
+                className="btn-close-panel"
+                onClick={() => setNotesOpen(false)}
+                id="btn-close-notes-panel"
+                title="Close Notes"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="notes-tabs">
+              <button
+                className={`notes-tab ${activeTab === 'list' ? 'active' : ''}`}
+                onClick={() => { setActiveTab('list'); setSelectedNote(null); }}
+                id="tab-my-notes"
+              >
+                My Notes
+              </button>
+              <button
+                className={`notes-tab ${activeTab === 'add' ? 'active' : ''}`}
+                onClick={() => setActiveTab('add')}
+                id="tab-add-note"
+              >
+                {selectedNote ? '✏️ Edit Note' : '+ Add Note'}
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="notes-tab-content">
+              {activeTab === 'list' ? (
+                <NotesList
+                  notes={notes}
+                  loading={notesLoading}
+                  error={notesError}
+                  selectedNoteId={selectedNote?.id}
+                  onEditNote={handleEditNote}
+                  onNoteDeleted={handleNoteDeleted}
+                  secretKey={secretKey}
+                />
+              ) : (
+                <NoteEditor
+                  selectedNote={selectedNote}
+                  onNoteAdded={handleNoteAdded}
+                  onNoteUpdated={handleNoteUpdated}
+                  onCancelEdit={() => { setSelectedNote(null); setActiveTab('list'); }}
+                  secretKey={secretKey}
+                />
+              )}
+            </div>
+          </div>
+        </aside>
       </main>
     </div>
   );

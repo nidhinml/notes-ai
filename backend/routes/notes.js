@@ -2,17 +2,19 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import sql from '../db/index.js';
 import { embedText } from '../services/openai.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const DEFAULT_USER_ID = process.env.DEFAULT_USER_ID || '00000000-0000-0000-0000-000000000001';
+// Mount authentication middleware to resolve user_id dynamically
+router.use(authMiddleware);
 
-// GET /api/notes - fetch all notes for DEFAULT_USER_ID
+// GET /api/notes - fetch all notes for authenticated user
 router.get('/', async (req, res) => {
   try {
     const rows = await sql(
       'SELECT id, title, content, created_at FROM notes WHERE user_id = $1 ORDER BY created_at DESC',
-      [DEFAULT_USER_ID]
+      [req.user_id]
     );
     res.json(rows);
   } catch (error) {
@@ -39,7 +41,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO notes (id, user_id, title, content, chunk_text, embedding)
        VALUES ($1, $2, $3, $4, $5, $6::vector)
        RETURNING id, title, content, created_at`,
-      [newNoteId, DEFAULT_USER_ID, title, content, content, embeddingStr]
+      [newNoteId, req.user_id, title, content, content, embeddingStr]
     );
 
     res.status(201).json(result[0]);
@@ -72,7 +74,7 @@ router.put('/:id', async (req, res) => {
        SET title = $1, content = $2, chunk_text = $3, embedding = $4::vector, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $5 AND user_id = $6 
        RETURNING id, title, content, created_at`,
-      [title, content, content, embeddingStr, id, DEFAULT_USER_ID]
+      [title, content, content, embeddingStr, id, req.user_id]
     );
 
     if (result.length === 0) {
@@ -97,7 +99,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const result = await sql(
       'DELETE FROM notes WHERE id = $1 AND user_id = $2 RETURNING id',
-      [id, DEFAULT_USER_ID]
+      [id, req.user_id]
     );
 
     if (result.length === 0) {
