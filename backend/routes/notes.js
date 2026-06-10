@@ -45,7 +45,10 @@ router.post('/', async (req, res) => {
     res.status(201).json(result[0]);
   } catch (error) {
     console.error('Error creating note:', error);
-    res.status(500).json({ error: 'Failed to create note' });
+    const message = error.code === 'invalid_api_key'
+      ? 'Invalid OpenAI API key configured in backend/.env. Please replace it with a valid key.'
+      : 'Failed to create note';
+    res.status(500).json({ error: message });
   }
 });
 

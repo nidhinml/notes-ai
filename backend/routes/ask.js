@@ -55,7 +55,10 @@ router.post('/', async (req, res) => {
     res.json({ answer, sources });
   } catch (error) {
     console.error('Error in ask handler:', error);
-    res.status(500).json({ error: 'Failed to process ask query' });
+    const message = error.code === 'invalid_api_key'
+      ? 'Invalid OpenAI API key configured in backend/.env. Please replace it with a valid key.'
+      : 'Failed to process ask query';
+    res.status(500).json({ error: message });
   }
 });
 
