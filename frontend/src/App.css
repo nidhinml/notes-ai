@@ -467,6 +467,12 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+[data-theme="light"] .chat-welcome h2 {
+  background: linear-gradient(90deg, #0f172a 30%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 .chat-welcome p { font-size: 14px; color: var(--text-secondary); max-width: 320px; }
 
 .welcome-chips {
