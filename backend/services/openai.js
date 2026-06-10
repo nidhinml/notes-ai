@@ -1,14 +1,15 @@
-import { OpenAI } from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const openai = new OpenAI({
+// Initialize the Google Gen AI client using the user's Gemini key (stored in OPENAI_API_KEY)
+const ai = new GoogleGenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 /**
- * Generate vector embedding for a given text using text-embedding-3-small
+ * Generate vector embedding for a given text using gemini-embedding-2 (1536 dimensions)
  * @param {string} text - The input text to embed
  * @returns {Promise<Array<number>>} - Vector embedding array (1536 dimensions)
  */
@@ -18,11 +19,19 @@ export async function embedText(text) {
   }
 
   try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: text.replace(/\n/g, ' '),
+    const response = await ai.models.embedContent({
+      model: 'gemini-embedding-2',
+      contents: text,
+      config: {
+        outputDimensionality: 1536,
+      },
     });
-    return response.data[0].embedding;
+    
+    if (!response.embeddings || response.embeddings.length === 0) {
+      throw new Error('Failed to retrieve embeddings from Gemini API');
+    }
+    
+    return response.embeddings[0].values;
   } catch (error) {
     console.error('Error generating embedding:', error);
     throw error;
@@ -30,7 +39,7 @@ export async function embedText(text) {
 }
 
 /**
- * Generate a conversational response using gpt-4o-mini based ONLY on retrieved note context chunks
+ * Generate a conversational response using gemini-2.5-flash based ONLY on retrieved note context chunks
  * @param {string} question - The user question
  * @param {Array<object>} contextChunks - Array of note chunks { title, chunk_text }
  * @returns {Promise<string>} - The LLM answer
@@ -45,17 +54,17 @@ export async function askLLM(question, contextChunks) {
 
     const userContent = `Context:\n"""\n${formattedChunks}\n"""\n\nQuestion: ${question}`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent }
-      ],
-      max_tokens: 500,
-      temperature: 0.3, // keeps it concise and strictly adhering to context
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userContent,
+      config: {
+        systemInstruction: systemPrompt,
+        maxOutputTokens: 500,
+        temperature: 0.3,
+      },
     });
 
-    return response.choices[0].message.content;
+    return response.text;
   } catch (error) {
     console.error('Error generating LLM chat response:', error);
     throw error;

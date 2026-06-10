@@ -9,6 +9,7 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "@google/genai": "^2.8.0",
     "@neondatabase/serverless": "^0.9.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

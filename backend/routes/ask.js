@@ -55,8 +55,9 @@ router.post('/', async (req, res) => {
     res.json({ answer, sources });
   } catch (error) {
     console.error('Error in ask handler:', error);
-    const message = error.code === 'invalid_api_key'
-      ? 'Invalid OpenAI API key configured in backend/.env. Please replace it with a valid key.'
+    const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
+    const message = isApiKeyError
+      ? 'Invalid Gemini API key configured in backend/.env. Please replace it with a valid key.'
       : 'Failed to process ask query';
     res.status(500).json({ error: message });
   }
