@@ -26,13 +26,32 @@ const LIGHT_CARDS = [
 ];
 
 export default function ChatBox({ secretKey }) {
-  const [messages, setMessages] = useState([]);
+  // Use a user-specific key so chat history is kept separate per key profile
+  const storageKey = `chat_history_${secretKey || 'default'}`;
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [input, setInput]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef       = useRef(null);
+
+  // Persist chat history changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch (err) {
+      console.error('Failed to save chat history to localStorage:', err);
+    }
+  }, [messages, storageKey]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,6 +88,12 @@ export default function ChatBox({ secretKey }) {
     }
   };
 
+  const clearChat = () => {
+    if (window.confirm("Are you sure you want to clear your conversation history?")) {
+      setMessages([]);
+    }
+  };
+
   const handleSubmit = (e) => { e.preventDefault(); sendMessage(input); };
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
@@ -78,6 +103,18 @@ export default function ChatBox({ secretKey }) {
 
   return (
     <div className="chatbox" style={{ position: 'relative', overflow: 'hidden' }}>
+
+      {/* Clear Chat Button */}
+      {hasMessages && (
+        <button 
+          className="btn-clear-chat" 
+          onClick={clearChat}
+          id="btn-clear-chat"
+          title="Clear Conversation History"
+        >
+          🧹 Clear Chat
+        </button>
+      )}
 
       {/* ══════ 3D BACKGROUND LAYER ══════ */}
       <div className="chat-bg-layer" aria-hidden="true">
@@ -111,6 +148,12 @@ export default function ChatBox({ secretKey }) {
 
         {/* Subtle dot grid */}
         <div className="chat-bg-dots" />
+
+        {/* 🚀 Flying AI Drone / Orbs flying over the chat window */}
+        <div className="chat-flying-ai-drone drone-1" aria-hidden="true">🤖</div>
+        <div className="chat-flying-ai-drone drone-2" aria-hidden="true">🛸</div>
+        <div className="chat-flying-ai-drone drone-3" aria-hidden="true">✨</div>
+        <div className="chat-flying-ai-drone drone-4" aria-hidden="true">💫</div>
       </div>
       {/* ══════ END BACKGROUND LAYER ══════ */}
 

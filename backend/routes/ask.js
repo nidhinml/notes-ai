@@ -1,10 +1,11 @@
 import express from 'express';
 import sql from '../db/index.js';
 import { embedText, askLLM } from '../services/openai.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const DEFAULT_USER_ID = process.env.DEFAULT_USER_ID || '00000000-0000-0000-0000-000000000001';
+router.use(authMiddleware);
 
 // POST /api/ask - RAG route matching user queries to note contents
 router.post('/', async (req, res) => {
@@ -26,7 +27,7 @@ router.post('/', async (req, res) => {
        WHERE user_id = $1 
        ORDER BY embedding <=> $2::vector 
        LIMIT 3`,
-      [DEFAULT_USER_ID, queryEmbeddingStr]
+      [req.user_id, queryEmbeddingStr]
     );
 
     // If no notes are found, return default response
@@ -57,7 +58,7 @@ router.post('/', async (req, res) => {
     console.error('Error in ask handler:', error);
     const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
     const message = isApiKeyError
-      ? 'Invalid Gemini API key configured in backend/.env. Please replace it with a valid key.'
+      ? 'Invalid DeepSeek API key configured in backend/.env. Please replace it with a valid key.'
       : 'Failed to process ask query';
     res.status(500).json({ error: message });
   }

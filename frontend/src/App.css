@@ -1018,3 +1018,173 @@ body {
     0 1px 0 rgba(255,255,255,0.18) inset;
 }
 
+/* ── Clear Chat Button Styling ── */
+.btn-clear-chat {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 10;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: #fda4af;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  backdrop-filter: blur(8px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15);
+}
+
+.btn-clear-chat:hover {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(244, 63, 94, 0.35);
+}
+
+.btn-clear-chat:active {
+  transform: translateY(0);
+}
+
+/* ── Flying AI Drone Elements ── */
+.chat-flying-ai-drone {
+  position: absolute;
+  font-size: 26px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.15;
+  filter: drop-shadow(0 0 8px rgba(124, 92, 252, 0.6)) blur(0.5px);
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+/* Drone 1: The Robot Drone (Top Left to Bottom Right path loop) */
+.drone-1 {
+  top: -10%;
+  left: -10%;
+  animation: dronePath1 25s infinite linear;
+}
+
+/* Drone 2: The UFO (Right to Left sweep path loop) */
+.drone-2 {
+  top: 40%;
+  right: -10%;
+  font-size: 30px;
+  opacity: 0.1;
+  filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.5));
+  animation: dronePath2 32s infinite linear;
+}
+
+/* Drone 3: Sparkle Spark (Random chaotic dance loop) */
+.drone-3 {
+  top: 70%;
+  left: 20%;
+  font-size: 20px;
+  opacity: 0.2;
+  filter: drop-shadow(0 0 6px rgba(240, 171, 252, 0.7));
+  animation: dronePath3 18s infinite ease-in-out;
+}
+
+/* Drone 4: Shooting Star (Top Right to Middle Left zip loop) */
+.drone-4 {
+  top: 10%;
+  right: -5%;
+  font-size: 22px;
+  opacity: 0.12;
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.6));
+  animation: dronePath4 22s infinite linear;
+}
+
+@keyframes dronePath1 {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.7);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.18;
+  }
+  30% {
+    transform: translate3d(30vw, 25vh, 0) rotate(120deg) scale(1.1);
+  }
+  50% {
+    transform: translate3d(60vw, 15vh, 0) rotate(240deg) scale(0.9);
+  }
+  75% {
+    transform: translate3d(85vw, 65vh, 0) rotate(180deg) scale(1.2);
+    opacity: 0.18;
+  }
+  90% {
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(115vw, 105vh, 0) rotate(360deg) scale(0.7);
+    opacity: 0;
+  }
+}
+
+@keyframes dronePath2 {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.15;
+  }
+  40% {
+    transform: translate3d(-35vw, -15vh, 0) rotate(-45deg) scale(0.8);
+  }
+  70% {
+    transform: translate3d(-70vw, 20vh, 0) rotate(15deg) scale(1);
+    opacity: 0.15;
+  }
+  90% {
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(-115vw, 5vh, 0) rotate(-10deg) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes dronePath3 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(0.8) rotate(0deg);
+  }
+  25% {
+    transform: translate3d(15vw, -20vh, 0) scale(1.2) rotate(90deg);
+  }
+  50% {
+    transform: translate3d(30vw, 5vh, 0) scale(0.9) rotate(180deg);
+  }
+  75% {
+    transform: translate3d(10vw, 25vh, 0) scale(1.1) rotate(270deg);
+  }
+}
+
+@keyframes dronePath4 {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.16;
+  }
+  50% {
+    transform: translate3d(-40vw, 40vh, 0) rotate(-180deg) scale(1);
+  }
+  85% {
+    opacity: 0.16;
+  }
+  100% {
+    transform: translate3d(-95vw, 25vh, 0) rotate(-360deg) scale(0.6);
+    opacity: 0;
+  }
+}
+
+

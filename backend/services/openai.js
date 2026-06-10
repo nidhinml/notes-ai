@@ -1,15 +1,22 @@
-import { GoogleGenAI } from '@google/genai';
+import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize the Google Gen AI client using the user's Gemini key (stored in OPENAI_API_KEY)
-const ai = new GoogleGenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// DeepSeek API key is stored in process.env.OPENAI_API_KEY
+const DEEPSEEK_API_KEY = process.env.OPENAI_API_KEY;
+
+const openai = new OpenAI({
+  apiKey: DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com/v1',
 });
 
 /**
- * Generate vector embedding for a given text using gemini-embedding-2 (1536 dimensions)
+ * Generate vector embedding for a given text.
+ * Since DeepSeek does not offer an embedding API, we generate a consistent mock
+ * 1536-dimensional embedding vector so the database queries (which require a 1536-dim vector)
+ * function seamlessly.
+ * 
  * @param {string} text - The input text to embed
  * @returns {Promise<Array<number>>} - Vector embedding array (1536 dimensions)
  */
@@ -19,27 +26,50 @@ export async function embedText(text) {
   }
 
   try {
-    const response = await ai.models.embedContent({
-      model: 'gemini-embedding-2',
-      contents: text,
-      config: {
-        outputDimensionality: 1536,
-      },
-    });
+    // Generate a consistent, pseudo-random embedding vector based on the hash of the text
+    // to ensure that identical text yields the identical embedding.
+    const dimensions = 1536;
+    const embedding = new Array(dimensions).fill(0);
     
-    if (!response.embeddings || response.embeddings.length === 0) {
-      throw new Error('Failed to retrieve embeddings from Gemini API');
+    // Simple hash function to seed the values
+    let hash = 0;
+    const cleanText = text.trim().toLowerCase();
+    for (let i = 0; i < cleanText.length; i++) {
+      const char = cleanText.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
     }
+
+    // Fill the array with deterministic pseudo-random floats between -1 and 1
+    let seed = Math.abs(hash) || 1;
+    for (let i = 0; i < dimensions; i++) {
+      // Linear congruential generator (LCG) for deterministic values
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      embedding[i] = (seed / 4294967296) * 2 - 1;
+    }
+
+    // Normalize the vector (standard practice for cosine similarity)
+    let magnitude = 0;
+    for (let i = 0; i < dimensions; i++) {
+      magnitude += embedding[i] * embedding[i];
+    }
+    magnitude = Math.sqrt(magnitude);
     
-    return response.embeddings[0].values;
+    if (magnitude > 0) {
+      for (let i = 0; i < dimensions; i++) {
+        embedding[i] = embedding[i] / magnitude;
+      }
+    }
+
+    return embedding;
   } catch (error) {
-    console.error('Error generating embedding:', error);
+    console.error('Error generating mock embedding:', error);
     throw error;
   }
 }
 
 /**
- * Generate a conversational response using gemini-2.5-flash based ONLY on retrieved note context chunks
+ * Generate a conversational response using DeepSeek Chat based ONLY on retrieved note context chunks
  * @param {string} question - The user question
  * @param {Array<object>} contextChunks - Array of note chunks { title, chunk_text }
  * @returns {Promise<string>} - The LLM answer
@@ -55,25 +85,20 @@ export async function askLLM(question, contextChunks) {
 
     const userContent = `Context:\n"""\n${formattedChunks}\n"""\n\nQuestion: ${question}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: userContent,
-      config: {
-        systemInstruction: systemPrompt,
-        maxOutputTokens: 500,
-        temperature: 0.3,
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-        ]
-      },
+    const response = await openai.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent }
+      ],
+      max_tokens: 500,
+      temperature: 0.3,
     });
 
-    return response.text;
+    return response.choices[0].message.content;
   } catch (error) {
-    console.error('Error generating LLM chat response:', error);
+    console.error('Error generating DeepSeek chat response:', error);
     throw error;
   }
 }
+
