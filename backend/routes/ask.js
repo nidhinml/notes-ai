@@ -20,18 +20,70 @@ router.post('/', async (req, res) => {
     const queryEmbedding = await embedText(question);
     const queryEmbeddingStr = `[${queryEmbedding.join(',')}]`;
 
-    // 2. Query Neon DB for top 3 most similar notes using pgvector cosine similarity (<=>)
+    // 2. Fetch notes for this user
+    // To ensure accurate responses for queries like "recent notes", "tasks/todos", and "meetings",
+    // we perform a hybrid search: combining semantic pgvector lookup with a keyword filter fallback.
+    const cleanQuery = question.toLowerCase();
+    
+    // We fetch notes matching semantic similarity first
     const matchedNotes = await sql(
-      `SELECT id, title, chunk_text 
+      `SELECT id, title, content, chunk_text, created_at 
        FROM notes 
        WHERE user_id = $1 
        ORDER BY embedding <=> $2::vector 
-       LIMIT 3`,
+       LIMIT 5`,
       [req.user_id, queryEmbeddingStr]
     );
 
-    // If no notes are found, return default response
-    if (matchedNotes.length === 0) {
+    // Fetch all user notes to perform direct keyword scans and date checks if semantic search missed them
+    const allUserNotes = await sql(
+      `SELECT id, title, content, chunk_text, created_at 
+       FROM notes 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC`,
+      [req.user_id]
+    );
+
+    // Hybrid filter list
+    let finalNotes = [...matchedNotes];
+
+    if (cleanQuery.includes('recent') || cleanQuery.includes('last notes') || cleanQuery.includes('summarize')) {
+      // If user asks for recent notes, prioritize by creation date
+      finalNotes = allUserNotes.slice(0, 5);
+    } else {
+      // Look for notes containing direct keywords (e.g. "meeting", "task", "todo", "week")
+      const keywords = [];
+      if (cleanQuery.includes('meeting')) keywords.push('meeting');
+      if (cleanQuery.includes('task') || cleanQuery.includes('todo') || cleanQuery.includes('to-do')) {
+        keywords.push('task', 'todo', 'to-do');
+      }
+      if (cleanQuery.includes('week') || cleanQuery.includes('day') || cleanQuery.includes('birthday')) {
+        keywords.push('week', 'day', 'birthday', 'date', '1997', 'january');
+      }
+
+      if (keywords.length > 0) {
+        const keywordMatched = allUserNotes.filter(note => {
+          const titleLower = note.title.toLowerCase();
+          const contentLower = note.content.toLowerCase();
+          return keywords.some(kw => titleLower.includes(kw) || contentLower.includes(kw));
+        });
+
+        // Merge and deduplicate (keeping semantic hits first, then prepending keyword matches)
+        const combined = [...keywordMatched, ...finalNotes];
+        const unique = [];
+        const seen = new Set();
+        for (const n of combined) {
+          if (!seen.has(n.id)) {
+            seen.add(n.id);
+            unique.push(n);
+          }
+        }
+        finalNotes = unique.slice(0, 5);
+      }
+    }
+
+    // If no notes are found at all, return default response
+    if (finalNotes.length === 0) {
       return res.json({
         answer: 'You have no notes yet. Start by adding some notes!',
         sources: []
@@ -39,16 +91,16 @@ router.post('/', async (req, res) => {
     }
 
     // 3. Build context chunks from retrieved notes
-    const contextChunks = matchedNotes.map(note => ({
+    const contextChunks = finalNotes.map(note => ({
       title: note.title,
-      chunk_text: note.chunk_text
+      chunk_text: note.content // Pass full content for more complete context
     }));
 
     // 4. Generate answer string using OpenAI Chat API
     const answer = await askLLM(question, contextChunks);
 
     // 5. Compile unique sources response array
-    const sources = matchedNotes.map(note => ({
+    const sources = finalNotes.map(note => ({
       id: note.id,
       title: note.title
     }));
