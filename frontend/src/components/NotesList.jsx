@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 
 export default function NotesList({ notes, loading, error, selectedNoteId, onSelectNote, onNoteDeleted }) {
+  const [searchQuery, setSearchQuery] = useState('');
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this note?')) return;
@@ -32,6 +33,11 @@ export default function NotesList({ notes, loading, error, selectedNoteId, onSel
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
+  const filteredNotes = notes.filter(note => 
+    note.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    note.content?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col gap-3">
       {/* Title with count badge */}
@@ -42,6 +48,18 @@ export default function NotesList({ notes, loading, error, selectedNoteId, onSel
         <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
           {notes.length}
         </span>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search notes by title or keyword..."
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 pl-9 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition bg-slate-50"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
       </div>
 
       {/* Main List */}
@@ -61,14 +79,14 @@ export default function NotesList({ notes, loading, error, selectedNoteId, onSel
           <div className="p-6 text-center text-xs text-rose-500">
             ⚠ {error}
           </div>
-        ) : notes.length === 0 ? (
+        ) : filteredNotes.length === 0 ? (
           /* Empty State */
           <div className="p-8 text-center text-slate-400 text-sm">
-            No notes yet. Add your first note above!
+            {searchQuery ? 'No matching notes found.' : 'No notes yet. Add your first note above!'}
           </div>
         ) : (
           /* Note Cards */
-          notes.map((note) => (
+          filteredNotes.map((note) => (
             <div
               key={note.id}
               onClick={() => onSelectNote(note)}
