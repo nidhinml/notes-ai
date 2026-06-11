@@ -210,15 +210,14 @@ router.post('/recover-request', async (req, res) => {
       maskedEmail = userEmail[0] + '*'.repeat(atIdx - 2) + userEmail[atIdx - 1] + userEmail.substring(atIdx);
     }
 
+    if (!emailSent) {
+      console.log(`[SMS OTP MOCK] (SMTP missing) Recovery OTP for ${trimmedMobile} is: ${otp}`);
+    }
+
     return res.json({ 
       success: true, 
       maskedEmail,
-      emailSent,
-      // If NOT configured, send the OTP in the body so they can test/develop it without SMTP credentials
-      ...(emailSent ? {} : { 
-        otp, 
-        warning: 'SMTP credentials missing. Mock OTP returned in response body for testing.' 
-      })
+      emailSent
     });
   } catch (error) {
     console.error('Recover request error:', error);

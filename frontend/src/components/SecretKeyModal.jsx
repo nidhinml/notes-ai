@@ -139,7 +139,6 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
       const { data } = await axios.post('/api/auth/recover-request', { mobileNumber: trimmed });
       setMaskedEmail(data.maskedEmail);
       setEmailSent(data.emailSent);
-      setMockOtpHint(data.otp || '');
       setStep('forgot_verify');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to request recovery. Is the mobile number correct?');
@@ -421,22 +420,12 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
           <div className="modal-step">
             <div className="modal-icon icon-3d">✉️</div>
             <h2>Enter Verification Code</h2>
-            <p style={{ marginBottom: 16 }}>
+            <p style={{ marginBottom: 20, fontSize: '14px', lineHeight: '1.5' }}>
               {emailSent 
-                ? `We have emailed a 6-digit OTP verification code to your registered Gmail: ${maskedEmail}. Check your inbox.`
-                : "We've simulated sending a code to your registered number. Enter the 6-digit OTP code below."
+                ? `We have emailed a 6-digit OTP verification code to your registered Gmail: ${maskedEmail}. Please check your inbox (and spam folder).`
+                : "SMTP mail server is not configured in .env. We have logged the verification OTP to the backend server terminal console for testing."
               }
             </p>
-
-            {/* Mock SMS Banner (Fallback when SMTP is not configured) */}
-            {!emailSent && mockOtpHint && (
-              <div style={{ padding: '10px 14px', background: 'rgba(34, 197, 94, 0.08)', border: '1px dashed var(--success)', borderRadius: 'var(--r-sm)', color: 'var(--success)', fontSize: '13px', marginBottom: 16, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📱</span>
-                <div>
-                  <strong>[Mock SMS]:</strong> Your verification code is <strong style={{ fontSize: '15px', color: 'var(--text-primary)' }}>{mockOtpHint}</strong>
-                </div>
-              </div>
-            )}
 
             <form onSubmit={handleForgotVerify}>
               <div style={{ marginBottom: 16, textAlign: 'left' }}>
