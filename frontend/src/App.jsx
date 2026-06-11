@@ -7,10 +7,12 @@ import NotesList from './components/NotesList';
 import SecretKeyModal from './components/SecretKeyModal';
 
 const STORAGE_KEY = 'notes_ai_secret_key';
+const MOBILE_STORAGE_KEY = 'notes_ai_mobile_number';
 
 export default function App() {
   // ----- Auth state -----
   const [secretKey, setSecretKey] = useState(() => localStorage.getItem(STORAGE_KEY) || '');
+  const [mobileNumber, setMobileNumber] = useState(() => localStorage.getItem(MOBILE_STORAGE_KEY) || '');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
 
@@ -34,27 +36,30 @@ export default function App() {
   }, [theme]);
 
   // -------------------------------------------------------
-  // Auto-validate stored key on mount
+  // Auto-validate stored credentials on mount
   // -------------------------------------------------------
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      validateKey(stored, true).then(valid => {
+    const storedKey = localStorage.getItem(STORAGE_KEY);
+    const storedMobile = localStorage.getItem(MOBILE_STORAGE_KEY);
+    if (storedKey && storedMobile) {
+      validateCredentials(storedMobile, storedKey, true).then(valid => {
         if (!valid) {
           setShowKeyModal(true);
         }
       });
     } else {
-      // Force user to set/enter a key if none is stored
+      // Force user to set/enter details if none are stored
       setShowKeyModal(true);
     }
   }, []);
 
-  const validateKey = async (key, silent = false) => {
+  const validateCredentials = async (mobile, key, silent = false) => {
     try {
-      await axios.post('/api/auth/validate', { secretKey: key });
+      await axios.post('/api/auth/validate', { mobileNumber: mobile, secretKey: key });
       setSecretKey(key);
+      setMobileNumber(mobile);
       localStorage.setItem(STORAGE_KEY, key);
+      localStorage.setItem(MOBILE_STORAGE_KEY, mobile);
       setIsAuthenticated(true);
       setShowKeyModal(false);
       return true;
@@ -128,7 +133,9 @@ export default function App() {
   // -------------------------------------------------------
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(MOBILE_STORAGE_KEY);
     setSecretKey('');
+    setMobileNumber('');
     setIsAuthenticated(false);
     setNotesOpen(false);
     setNotes([]);
@@ -144,8 +151,8 @@ export default function App() {
       {/* ============ SECRET KEY MODAL ============ */}
       {showKeyModal && (
         <SecretKeyModal
-          onSuccess={(key) => {
-            validateKey(key).then(() => {
+          onSuccess={(mobile, key) => {
+            validateCredentials(mobile, key).then(() => {
               // Optionally do not auto-open the notes slide-out panel, just log them in
               setNotesOpen(false);
             }).catch(() => {});

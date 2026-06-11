@@ -29,6 +29,7 @@ const STRENGTH_COLORS = ['#f43f5e', '#f97316', '#f59e0b', '#22c55e', '#06b6d4'];
  */
 export default function SecretKeyModal({ onSuccess, onClose }) {
   const [step, setStep]       = useState('input'); // 'input' | 'confirm_new' | 'logging_in' | 'success'
+  const [mobile, setMobile]   = useState(() => localStorage.getItem('notes_ai_mobile_number') || '');
   const [key, setKey]         = useState('');
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,11 +37,18 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
   const [suggested, setSuggested] = useState('');
   const [isNew, setIsNew]     = useState(false);
 
-  const inputRef = useRef(null);
+  const mobileRef = useRef(null);
+  const keyRef = useRef(null);
   const strength = getKeyStrength(key);
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 150);
+    setTimeout(() => {
+      if (!mobile) {
+        mobileRef.current?.focus();
+      } else {
+        keyRef.current?.focus();
+      }
+    }, 150);
     fetchSuggestion();
   }, []);
 
@@ -51,44 +59,51 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
     } catch (_) {}
   };
 
-  /* ─── Step 1: Check key ─── */
+  /* ─── Step 1: Check credentials ─── */
   const handleCheck = async (e) => {
     e.preventDefault();
-    const trimmed = key.trim();
-    if (!trimmed) return;
-    if (trimmed.length < 6) { setError('Key must be at least 6 characters.'); return; }
+    const trimmedMobile = mobile.trim();
+    const trimmedKey = key.trim();
+
+    if (!trimmedMobile) { setError('Mobile number is required.'); return; }
+    if (!trimmedKey) { setError('Secret key is required.'); return; }
+    if (trimmedKey.length < 6) { setError('Key must be at least 6 characters.'); return; }
 
     setLoading(true);
     setError(null);
 
     try {
-      const { data } = await axios.post('/api/auth/check', { secretKey: trimmed });
+      const { data } = await axios.post('/api/auth/check', { 
+        mobileNumber: trimmedMobile, 
+        secretKey: trimmedKey 
+      });
 
       if (data.exists) {
-        // Key belongs to a user → login directly, no questions asked
+        // Mobile registered and key matches → login directly
         setStep('logging_in');
-        await handleValidate(trimmed);
+        await handleValidate(trimmedMobile, trimmedKey);
       } else {
-        // Brand new key → go to confirm-create step
+        // Brand new account → go to confirm-create step
         setIsNew(true);
         setStep('confirm_new');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not check key. Try again.');
+      setError(err.response?.data?.error || 'Could not verify credentials. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
   /* ─── Step 2b: Validate (create or login) ─── */
-  const handleValidate = async (keyToUse) => {
+  const handleValidate = async (mobileToUse, keyToUse) => {
+    const m = mobileToUse || mobile.trim();
     const k = keyToUse || key.trim();
     setLoading(true);
     setError(null);
     try {
-      await axios.post('/api/auth/validate', { secretKey: k });
+      await axios.post('/api/auth/validate', { mobileNumber: m, secretKey: k });
       setStep('success');
-      setTimeout(() => onSuccess(k), 750);
+      setTimeout(() => onSuccess(m, k), 750);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed. Please try again.');
       setStep('input');
@@ -121,37 +136,60 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
           <div className="modal-step modal-step-success">
             <div className="modal-icon icon-3d" style={{ margin: '0 auto 20px' }}>🔓</div>
             <h2>Logging you in…</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>Authenticating your key</p>
+            <p style={{ color: 'var(--text-secondary)' }}>Authenticating your details</p>
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
               <span className="spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
             </div>
           </div>
         )}
 
-        {/* STEP 1 — ENTER KEY */}
+        {/* STEP 1 — ENTER DETAILS */}
         {step === 'input' && (
           <div className="modal-step">
             <div className="modal-icon icon-3d">🔑</div>
-            <h2>Your Secret Key</h2>
-            <p>Enter your key to access notes. Keys are unique — first use creates your account, returning users are logged in instantly.</p>
+            <h2>Access Notes AI</h2>
+            <p>Please enter your mobile number and secret key. First use registers your account, returning users log in securely.</p>
 
             <form onSubmit={handleCheck}>
-              <div className="modal-input-group">
+              <div style={{ marginBottom: 16, textAlign: 'left' }}>
+                <label htmlFor="mobile-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+                  📱 Mobile Number
+                </label>
                 <input
-                  ref={inputRef}
-                  id="secret-key-input"
-                  type={showKey ? 'text' : 'password'}
+                  ref={mobileRef}
+                  id="mobile-input"
+                  type="tel"
                   className="modal-input"
-                  placeholder="e.g. falcon-river-2847"
-                  value={key}
-                  onChange={(e) => { setKey(e.target.value); setError(null); }}
+                  style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', outline: 'none' }}
+                  placeholder="e.g. +91 9876543210"
+                  value={mobile}
+                  onChange={(e) => { setMobile(e.target.value); setError(null); }}
                   disabled={loading}
-                  autoComplete="off"
-                  spellCheck={false}
+                  autoComplete="tel"
                 />
-                <span className="modal-input-icon" onClick={() => setShowKey(v => !v)} role="button" tabIndex={0}>
-                  {showKey ? '🙈' : '👁'}
-                </span>
+              </div>
+
+              <div style={{ marginBottom: 16, textAlign: 'left' }}>
+                <label htmlFor="secret-key-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+                  🔑 Secret Key
+                </label>
+                <div className="modal-input-group">
+                  <input
+                    ref={keyRef}
+                    id="secret-key-input"
+                    type={showKey ? 'text' : 'password'}
+                    className="modal-input"
+                    placeholder="e.g. falcon-river-2847"
+                    value={key}
+                    onChange={(e) => { setKey(e.target.value); setError(null); }}
+                    disabled={loading}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <span className="modal-input-icon" onClick={() => setShowKey(v => !v)} role="button" tabIndex={0}>
+                    {showKey ? '🙈' : '👁'}
+                  </span>
+                </div>
               </div>
 
               {/* Strength meter */}
@@ -179,15 +217,15 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
               )}
 
               <div className="modal-info">
-                <strong>🔐 One key, one account.</strong> Each key maps to exactly one private account — no two users can share a key. If your key exists, you're instantly logged in.
+                <strong>🔐 Mobile + Key Pair.</strong> To prevent others from accessing your notes, access requires both your registered mobile number and secret key.
               </div>
 
               {error && <div className="modal-error" role="alert">⚠ {error}</div>}
 
               <button type="submit" className="btn-primary btn-glow" id="btn-check-key"
-                disabled={loading || key.trim().length < 6}
+                disabled={loading || key.trim().length < 6 || !mobile.trim()}
                 style={{ width: '100%', padding: '13px', marginTop: '4px' }}>
-                {loading ? <><span className="spinner" /> Checking…</> : <>Continue →</>}
+                {loading ? <><span className="spinner" /> Verifying…</> : <>Continue →</>}
               </button>
             </form>
 
@@ -205,18 +243,24 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
           <div className="modal-step">
             <div className="modal-icon icon-3d icon-new">🆕</div>
             <h2>Create New Account?</h2>
-            <p>This key isn't registered yet. A new private account will be created for you.</p>
+            <p>This mobile number isn't registered yet. A new private account will be created with this key.</p>
 
-            <div className="modal-key-preview">
-              <span className="modal-key-preview-label">Your new key:</span>
-              <code className="modal-key-code">{key}</code>
+            <div className="modal-key-preview" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="modal-key-preview-label" style={{ opacity: 0.6, fontSize: '13px' }}>Mobile:</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>{mobile}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="modal-key-preview-label" style={{ opacity: 0.6, fontSize: '13px' }}>Key:</span>
+                <code className="modal-key-code" style={{ background: 'transparent', padding: 0, fontSize: '14px' }}>{key}</code>
+              </div>
             </div>
 
             <div className="modal-save-reminder">
               <div className="save-reminder-icon">💾</div>
               <div>
                 <strong>Save this key now!</strong><br />
-                <span>This is your only access credential — no recovery options exist. Screenshot or save it somewhere safe.</span>
+                <span>This is your unique encryption credential — no recovery options exist. Screenshot or save it somewhere safe.</span>
               </div>
             </div>
 

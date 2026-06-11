@@ -7,6 +7,21 @@ import axios from 'axios';
 // Set global axios backend base URL to target our live Render backend instance
 axios.defaults.baseURL = 'https://notes-ai-backend-o3jp.onrender.com';
 
+// Request interceptor to automatically add x-secret-key and x-mobile-number headers from localStorage
+axios.interceptors.request.use((config) => {
+  const secretKey = localStorage.getItem('notes_ai_secret_key');
+  const mobileNumber = localStorage.getItem('notes_ai_mobile_number');
+  if (secretKey) {
+    config.headers['x-secret-key'] = secretKey;
+  }
+  if (mobileNumber) {
+    config.headers['x-mobile-number'] = mobileNumber;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />

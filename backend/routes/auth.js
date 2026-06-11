@@ -15,21 +15,33 @@ const router = express.Router();
  *   Step 2 → /validate → actually log in or create account
  */
 router.post('/check', async (req, res) => {
-  const { secretKey } = req.body;
+  const { mobileNumber, secretKey } = req.body;
 
+  if (!mobileNumber || mobileNumber.trim() === '') {
+    return res.status(400).json({ error: 'Mobile number is required' });
+  }
   if (!secretKey || secretKey.trim() === '') {
     return res.status(400).json({ error: 'Secret key is required' });
   }
 
+  const trimmedMobile = mobileNumber.trim();
   const trimmedKey = secretKey.trim();
 
   try {
     const matchedUsers = await sql(
-      'SELECT id FROM users WHERE secret_key = $1',
-      [trimmedKey]
+      'SELECT id, secret_key FROM users WHERE mobile_number = $1',
+      [trimmedMobile]
     );
 
-    return res.json({ exists: matchedUsers.length > 0 });
+    if (matchedUsers.length > 0) {
+      if (matchedUsers[0].secret_key === trimmedKey) {
+        return res.json({ exists: true, correctKey: true });
+      } else {
+        return res.status(401).json({ error: 'Incorrect secret key for this mobile number.' });
+      }
+    } else {
+      return res.json({ exists: false });
+    }
   } catch (error) {
     console.error('Auth check error:', error);
     return res.status(500).json({ error: 'Check failed. Please try again.' });
@@ -38,41 +50,49 @@ router.post('/check', async (req, res) => {
 
 /**
  * POST /api/auth/validate
- * Body: { secretKey: string }
- * If key exists → login (return existing userId).
- * If key is new → create new user and return new userId.
+ * Body: { mobileNumber: string, secretKey: string }
+ * If mobile exists → check secretKey → login (return existing userId).
+ * If mobile is new → create new user and return new userId.
  * Returns: { valid: true, userId, isNew }
  */
 router.post('/validate', async (req, res) => {
-  const { secretKey } = req.body;
+  const { mobileNumber, secretKey } = req.body;
 
+  if (!mobileNumber || mobileNumber.trim() === '') {
+    return res.status(400).json({ error: 'Mobile number is required' });
+  }
   if (!secretKey || secretKey.trim() === '') {
     return res.status(400).json({ error: 'Secret key is required' });
   }
 
+  const trimmedMobile = mobileNumber.trim();
   const trimmedKey = secretKey.trim();
 
   try {
     const matchedUsers = await sql(
-      'SELECT id FROM users WHERE secret_key = $1',
-      [trimmedKey]
+      'SELECT id, secret_key FROM users WHERE mobile_number = $1',
+      [trimmedMobile]
     );
 
     if (matchedUsers.length > 0) {
-      return res.json({ valid: true, userId: matchedUsers[0].id, isNew: false });
+      if (matchedUsers[0].secret_key === trimmedKey) {
+        return res.json({ valid: true, userId: matchedUsers[0].id, isNew: false });
+      } else {
+        return res.status(401).json({ error: 'Incorrect secret key for this mobile number.' });
+      }
     }
 
-    // Create a new user mapped to this secret key
+    // Create a new user mapped to this mobile number and secret key
     const newUserId = uuidv4();
-    const mockEmail = `${trimmedKey.replace(/[^a-zA-Z0-9]/g, '_')}-${Date.now()}@personal.ai`;
-    const userName = trimmedKey.substring(0, 50);
+    const mockEmail = `${trimmedMobile}-${Date.now()}@personal.ai`;
+    const userName = `User-${trimmedMobile.slice(-4)}`;
 
     await sql(
-      `INSERT INTO users (id, email, name, secret_key) VALUES ($1, $2, $3, $4)`,
-      [newUserId, mockEmail, userName, trimmedKey]
+      `INSERT INTO users (id, email, name, secret_key, mobile_number) VALUES ($1, $2, $3, $4, $5)`,
+      [newUserId, mockEmail, userName, trimmedKey, trimmedMobile]
     );
 
-    console.log(`✓ New user created with key "${trimmedKey}" → UUID: ${newUserId}`);
+    console.log(`✓ New user created with mobile "${trimmedMobile}" → UUID: ${newUserId}`);
     return res.json({ valid: true, userId: newUserId, isNew: true });
   } catch (error) {
     console.error('Auth validate error:', error);
