@@ -28,7 +28,7 @@ const STRENGTH_COLORS = ['#f43f5e', '#f97316', '#f59e0b', '#22c55e', '#06b6d4'];
  *   - New user types unique key → confirmation step
  */
 export default function SecretKeyModal({ onSuccess, onClose }) {
-  const [step, setStep]       = useState('input'); // 'input' | 'confirm_new' | 'logging_in' | 'success'
+  const [step, setStep]       = useState('input'); // 'input' | 'confirm_new' | 'logging_in' | 'success' | 'forgot_request' | 'forgot_verify' | 'forgot_result'
   const [mobile, setMobile]   = useState(() => localStorage.getItem('notes_ai_mobile_number') || '');
   const [key, setKey]         = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -36,6 +36,12 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
   const [error, setError]     = useState(null);
   const [suggested, setSuggested] = useState('');
   const [isNew, setIsNew]     = useState(false);
+
+  // Forgot password/key recovery states
+  const [forgotMobile, setForgotMobile] = useState('');
+  const [otpCode, setOtpCode]           = useState('');
+  const [mockOtpHint, setMockOtpHint]   = useState('');
+  const [recoveredKey, setRecoveredKey] = useState('');
 
   const mobileRef = useRef(null);
   const keyRef = useRef(null);
@@ -112,6 +118,43 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
     }
   };
 
+  /* ─── Forgot Key: Request OTP ─── */
+  const handleForgotRequest = async (e) => {
+    e.preventDefault();
+    const trimmed = forgotMobile.trim();
+    if (!trimmed) { setError('Mobile number is required.'); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axios.post('/api/auth/recover-request', { mobileNumber: trimmed });
+      setMockOtpHint(data.otp);
+      setStep('forgot_verify');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to request recovery. Is the mobile number correct?');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ─── Forgot Key: Verify OTP ─── */
+  const handleForgotVerify = async (e) => {
+    e.preventDefault();
+    const trimmedMobile = forgotMobile.trim();
+    const trimmedOtp = otpCode.trim();
+    if (!trimmedOtp) { setError('OTP code is required.'); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await axios.post('/api/auth/recover-verify', { mobileNumber: trimmedMobile, otp: trimmedOtp });
+      setRecoveredKey(data.secretKey);
+      setStep('forgot_result');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Invalid OTP code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleReset = () => { setStep('input'); setError(null); };
   const useSuggested = () => { setKey(suggested); setShowKey(true); setError(null); fetchSuggestion(); };
 
@@ -170,9 +213,18 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
               </div>
 
               <div style={{ marginBottom: 16, textAlign: 'left' }}>
-                <label htmlFor="secret-key-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
-                  🔑 Secret Key
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label htmlFor="secret-key-input" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                    🔑 Secret Key
+                  </label>
+                  <span 
+                    onClick={() => { setStep('forgot_request'); setError(null); }}
+                    style={{ fontSize: '12px', color: 'var(--accent-light)', cursor: 'pointer', textDecoration: 'underline' }}
+                    role="button"
+                  >
+                    Forgot Key?
+                  </span>
+                </div>
                 <div className="modal-input-group">
                   <input
                     ref={keyRef}
@@ -273,6 +325,130 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
               </button>
               <button className="btn-secondary" onClick={handleReset}
                 id="btn-back-to-input" style={{ flex: 1 }}>← Go Back</button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3a — FORGOT KEY: REQUEST OTP */}
+        {step === 'forgot_request' && (
+          <div className="modal-step">
+            <div className="modal-icon icon-3d">🔍</div>
+            <h2>Recover Secret Key</h2>
+            <p>Enter your registered mobile number below. We will send a verification OTP code to your number.</p>
+
+            <form onSubmit={handleForgotRequest}>
+              <div style={{ marginBottom: 16, textAlign: 'left' }}>
+                <label htmlFor="forgot-mobile-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+                  📱 Registered Mobile Number
+                </label>
+                <input
+                  id="forgot-mobile-input"
+                  type="tel"
+                  className="modal-input"
+                  style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', outline: 'none' }}
+                  placeholder="e.g. +91 9876543210"
+                  value={forgotMobile}
+                  onChange={(e) => { setForgotMobile(e.target.value); setError(null); }}
+                  disabled={loading}
+                  autoComplete="tel"
+                  required
+                />
+              </div>
+
+              {error && <div className="modal-error" role="alert">⚠ {error}</div>}
+
+              <div className="modal-action-row" style={{ marginTop: 20 }}>
+                <button type="submit" className="btn-primary btn-glow" disabled={loading || !forgotMobile.trim()} style={{ flex: 1 }}>
+                  {loading ? <><span className="spinner" /> Sending…</> : 'Send OTP →'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => { setStep('input'); setError(null); }} style={{ flex: 1 }}>
+                  Back
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* STEP 3b — FORGOT KEY: VERIFY OTP */}
+        {step === 'forgot_verify' && (
+          <div className="modal-step">
+            <div className="modal-icon icon-3d">✉️</div>
+            <h2>Enter Verification Code</h2>
+            <p>We've simulated sending an SMS to your mobile number. Enter the 6-digit OTP code below.</p>
+
+            {/* Mock SMS Banner */}
+            {mockOtpHint && (
+              <div style={{ padding: '10px 14px', background: 'rgba(34, 197, 94, 0.08)', border: '1px dashed var(--success)', borderRadius: 'var(--r-sm)', color: 'var(--success)', fontSize: '13px', marginBottom: 16, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📱</span>
+                <div>
+                  <strong>[Mock SMS]:</strong> Your verification code is <strong style={{ fontSize: '15px', color: 'var(--text-primary)' }}>{mockOtpHint}</strong>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotVerify}>
+              <div style={{ marginBottom: 16, textAlign: 'left' }}>
+                <label htmlFor="otp-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+                  💬 6-Digit OTP Code
+                </label>
+                <input
+                  id="otp-input"
+                  type="text"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="modal-input"
+                  style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', outline: 'none', textAlign: 'center', letterSpacing: '8px', fontSize: '18px', fontWeight: 'bold' }}
+                  placeholder="------"
+                  value={otpCode}
+                  onChange={(e) => { setOtpCode(e.target.value.replace(/[^0-9]/g, '')); setError(null); }}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              {error && <div className="modal-error" role="alert">⚠ {error}</div>}
+
+              <div className="modal-action-row" style={{ marginTop: 20 }}>
+                <button type="submit" className="btn-primary btn-glow" disabled={loading || otpCode.length < 6} style={{ flex: 1 }}>
+                  {loading ? <><span className="spinner" /> Verifying…</> : 'Verify & Recover ✓'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => { setStep('forgot_request'); setError(null); setOtpCode(''); }} style={{ flex: 1 }}>
+                  Back
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* STEP 3c — FORGOT KEY: RESULT */}
+        {step === 'forgot_result' && (
+          <div className="modal-step">
+            <div className="modal-icon icon-3d">🔓</div>
+            <h2>Key Recovered!</h2>
+            <p>Your secret key has been recovered successfully. Please save it securely.</p>
+
+            <div className="modal-key-preview" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', marginBottom: '20px' }}>
+              <span className="modal-key-preview-label" style={{ opacity: 0.6, fontSize: '13px', textAlign: 'center' }}>Your Secret Key:</span>
+              <code className="modal-key-code" style={{ background: 'rgba(124, 92, 252, 0.08)', padding: '10px 14px', fontSize: '16px', color: 'var(--accent-light)', border: '1px solid rgba(124, 92, 252, 0.2)', borderRadius: 'var(--r-sm)', textAlign: 'center', wordBreak: 'break-all', fontWeight: 'bold' }}>
+                {recoveredKey}
+              </code>
+            </div>
+
+            <div className="modal-action-row">
+              <button 
+                type="button" 
+                className="btn-primary btn-glow" 
+                onClick={() => {
+                  setMobile(forgotMobile);
+                  setKey(recoveredKey);
+                  setStep('input');
+                  setError(null);
+                }} 
+                style={{ flex: 1 }}
+              >
+                📋 Copy to Input & Login
+              </button>
             </div>
           </div>
         )}

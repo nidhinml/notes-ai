@@ -100,6 +100,97 @@ router.post('/validate', async (req, res) => {
   }
 });
 
+// In-memory store for active OTPs: mobileNumber -> otp
+const activeOtps = new Map();
+
+/**
+ * POST /api/auth/recover-request
+ * Body: { mobileNumber: string }
+ * Generates a mock OTP and returns it.
+ */
+router.post('/recover-request', async (req, res) => {
+  const { mobileNumber } = req.body;
+  if (!mobileNumber || mobileNumber.trim() === '') {
+    return res.status(400).json({ error: 'Mobile number is required' });
+  }
+
+  const trimmedMobile = mobileNumber.trim();
+
+  try {
+    const matchedUsers = await sql(
+      'SELECT id FROM users WHERE mobile_number = $1',
+      [trimmedMobile]
+    );
+
+    if (matchedUsers.length === 0) {
+      return res.status(404).json({ error: 'This mobile number is not registered.' });
+    }
+
+    // Generate a random 6-digit mock OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    activeOtps.set(trimmedMobile, otp);
+
+    console.log(`[SMS OTP MOCK] Sent OTP ${otp} to ${trimmedMobile}`);
+    
+    // For development, we return the OTP in the response body so the frontend can mock-simulate showing it.
+    return res.json({ 
+      success: true, 
+      otp, 
+      message: 'OTP sent successfully (mocked).' 
+    });
+  } catch (error) {
+    console.error('Recover request error:', error);
+    return res.status(500).json({ error: 'Failed to initiate recovery.' });
+  }
+});
+
+/**
+ * POST /api/auth/recover-verify
+ * Body: { mobileNumber: string, otp: string }
+ * Returns the plain-text secretKey if valid.
+ */
+router.post('/recover-verify', async (req, res) => {
+  const { mobileNumber, otp } = req.body;
+
+  if (!mobileNumber || mobileNumber.trim() === '') {
+    return res.status(400).json({ error: 'Mobile number is required' });
+  }
+  if (!otp || otp.trim() === '') {
+    return res.status(400).json({ error: 'OTP is required' });
+  }
+
+  const trimmedMobile = mobileNumber.trim();
+  const trimmedOtp = otp.trim();
+
+  const storedOtp = activeOtps.get(trimmedMobile);
+
+  if (!storedOtp || storedOtp !== trimmedOtp) {
+    return res.status(400).json({ error: 'Invalid or expired OTP.' });
+  }
+
+  try {
+    const matchedUsers = await sql(
+      'SELECT secret_key FROM users WHERE mobile_number = $1',
+      [trimmedMobile]
+    );
+
+    if (matchedUsers.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Clear OTP after successful verification
+    activeOtps.delete(trimmedMobile);
+
+    return res.json({ 
+      success: true, 
+      secretKey: matchedUsers[0].secret_key 
+    });
+  } catch (error) {
+    console.error('Recover verify error:', error);
+    return res.status(500).json({ error: 'Failed to verify OTP.' });
+  }
+});
+
 /**
  * POST /api/auth/suggest-key
  * Returns a randomly generated strong unique key for new users.
