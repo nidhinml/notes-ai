@@ -9,11 +9,13 @@ export async function authMiddleware(req, res, next) {
   // If no secret key is provided, default to the seeded test user
   if (!secretKey || secretKey.trim() === '') {
     req.user_id = DEFAULT_USER_ID;
+    req.secret_key = 'default-secret-seed-key-32-chars';
     return next();
   }
 
   try {
     const trimmedKey = secretKey.trim();
+    req.secret_key = trimmedKey;
     
     // Look up user by secret_key
     const matchedUsers = await sql(

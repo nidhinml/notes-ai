@@ -2,6 +2,7 @@ import express from 'express';
 import sql from '../db/index.js';
 import { embedText, askLLM } from '../services/openai.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { decryptText } from '../services/cryptoutils.js';
 
 const router = express.Router();
 
@@ -44,12 +45,25 @@ router.post('/', async (req, res) => {
       [req.user_id]
     );
 
-    // Hybrid filter list
-    let finalNotes = [...matchedNotes];
+    // Decrypt all fetched notes so keyword scanner and context assembler operate on plaintext
+    const decryptedAllNotes = allUserNotes.map(n => ({
+      ...n,
+      content: decryptText(n.content, req.secret_key),
+      chunk_text: decryptText(n.content, req.secret_key)
+    }));
+
+    const decryptedMatchedNotes = matchedNotes.map(n => ({
+      ...n,
+      content: decryptText(n.content, req.secret_key),
+      chunk_text: decryptText(n.content, req.secret_key)
+    }));
+
+    // Hybrid filter list using decrypted note objects
+    let finalNotes = [...decryptedMatchedNotes];
 
     if (cleanQuery.includes('recent') || cleanQuery.includes('last notes') || cleanQuery.includes('summarize')) {
       // If user asks for recent notes, prioritize by creation date
-      finalNotes = allUserNotes.slice(0, 5);
+      finalNotes = decryptedAllNotes.slice(0, 5);
     } else {
       // Look for notes containing direct keywords (e.g. "meeting", "task", "todo", "week")
       const keywords = [];
@@ -62,7 +76,7 @@ router.post('/', async (req, res) => {
       }
 
       if (keywords.length > 0) {
-        const keywordMatched = allUserNotes.filter(note => {
+        const keywordMatched = decryptedAllNotes.filter(note => {
           const titleLower = note.title.toLowerCase();
           const contentLower = note.content.toLowerCase();
           return keywords.some(kw => titleLower.includes(kw) || contentLower.includes(kw));
@@ -93,7 +107,7 @@ router.post('/', async (req, res) => {
     // 3. Build context chunks from retrieved notes
     const contextChunks = finalNotes.map(note => ({
       title: note.title,
-      chunk_text: note.content // Pass full content for more complete context
+      chunk_text: note.content // Pass decrypted content for complete context
     }));
 
     // 4. Generate answer string using OpenAI Chat API

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import sql from '../db/index.js';
 import { embedText } from '../services/openai.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { encryptText, decryptText } from '../services/cryptoutils.js';
 
 const router = express.Router();
 
@@ -16,7 +17,14 @@ router.get('/', async (req, res) => {
       'SELECT id, title, content, created_at FROM notes WHERE user_id = $1 ORDER BY created_at DESC',
       [req.user_id]
     );
-    res.json(rows);
+    
+    // Decrypt notes content for the client
+    const decryptedRows = rows.map(note => ({
+      ...note,
+      content: decryptText(note.content, req.secret_key),
+    }));
+    
+    res.json(decryptedRows);
   } catch (error) {
     console.error('Error fetching notes:', error);
     res.status(500).json({ error: 'Failed to fetch notes' });
@@ -32,19 +40,28 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    // Generate embedding from content
+    // Generate embedding from plaintext content
     const embedding = await embedText(content);
     const embeddingStr = `[${embedding.join(',')}]`;
     const newNoteId = uuidv4();
+
+    // Encrypt content before storing in database
+    const encryptedContent = encryptText(content, req.secret_key);
 
     const result = await sql(
       `INSERT INTO notes (id, user_id, title, content, chunk_text, embedding)
        VALUES ($1, $2, $3, $4, $5, $6::vector)
        RETURNING id, title, content, created_at`,
-      [newNoteId, req.user_id, title, content, content, embeddingStr]
+      [newNoteId, req.user_id, title, encryptedContent, encryptedContent, embeddingStr]
     );
 
-    res.status(201).json(result[0]);
+    // Decrypt content in response payload
+    const createdNote = {
+      ...result[0],
+      content: decryptText(result[0].content, req.secret_key),
+    };
+
+    res.status(201).json(createdNote);
   } catch (error) {
     console.error('Error creating note:', error);
     const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
@@ -69,19 +86,28 @@ router.put('/:id', async (req, res) => {
     const embedding = await embedText(content);
     const embeddingStr = `[${embedding.join(',')}]`;
 
+    // Encrypt content before storing in database
+    const encryptedContent = encryptText(content, req.secret_key);
+
     const result = await sql(
       `UPDATE notes 
        SET title = $1, content = $2, chunk_text = $3, embedding = $4::vector, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $5 AND user_id = $6 
        RETURNING id, title, content, created_at`,
-      [title, content, content, embeddingStr, id, req.user_id]
+      [title, encryptedContent, encryptedContent, embeddingStr, id, req.user_id]
     );
 
     if (result.length === 0) {
       return res.status(404).json({ error: 'Note not found or unauthorized' });
     }
 
-    res.json(result[0]);
+    // Decrypt content in response payload
+    const updatedNote = {
+      ...result[0],
+      content: decryptText(result[0].content, req.secret_key),
+    };
+
+    res.json(updatedNote);
   } catch (error) {
     console.error('Error updating note:', error);
     const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
