@@ -40,6 +40,9 @@ export default function App() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       validateKey(stored, true);
+    } else {
+      // Force user to set/enter a key if none is stored
+      setShowKeyModal(true);
     }
   }, []);
 
@@ -139,10 +142,12 @@ export default function App() {
         <SecretKeyModal
           onSuccess={(key) => {
             validateKey(key).then(() => {
-              setNotesOpen(true);
+              // Optionally do not auto-open the notes slide-out panel, just log them in
+              setNotesOpen(false);
             }).catch(() => {});
           }}
-          onClose={() => setShowKeyModal(false)}
+          // If not authenticated, do not allow closing the modal
+          onClose={isAuthenticated ? () => setShowKeyModal(false) : null}
         />
       )}
 
@@ -187,70 +192,79 @@ export default function App() {
 
       {/* ============ MAIN ============ */}
       <main className="app-main">
-        {/* Chat Panel — always visible */}
-        <div className="chat-panel">
-          <ChatBox secretKey={secretKey} />
-        </div>
-
-        {/* Notes Panel — slides in when open */}
-        <aside className={`notes-panel ${notesOpen ? 'open' : ''}`}>
-          <div className="notes-panel-inner">
-            <div className="notes-panel-header">
-              <h2>
-                <span>📝</span> My Notes
-              </h2>
-              <button
-                className="btn-close-panel"
-                onClick={() => setNotesOpen(false)}
-                id="btn-close-notes-panel"
-                title="Close Notes"
-              >
-                ✕
-              </button>
+        {/* Render chat panel and notes ONLY if authenticated */}
+        {isAuthenticated ? (
+          <>
+            <div className="chat-panel">
+              <ChatBox secretKey={secretKey} />
             </div>
 
-            {/* Tabs */}
-            <div className="notes-tabs">
-              <button
-                className={`notes-tab ${activeTab === 'list' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('list'); setSelectedNote(null); }}
-                id="tab-my-notes"
-              >
-                My Notes
-              </button>
-              <button
-                className={`notes-tab ${activeTab === 'add' ? 'active' : ''}`}
-                onClick={() => setActiveTab('add')}
-                id="tab-add-note"
-              >
-                {selectedNote ? '✏️ Edit Note' : '+ Add Note'}
-              </button>
-            </div>
+            <aside className={`notes-panel ${notesOpen ? 'open' : ''}`}>
+              <div className="notes-panel-inner">
+                <div className="notes-panel-header">
+                  <h2>
+                    <span>📝</span> My Notes
+                  </h2>
+                  <button
+                    className="btn-close-panel"
+                    onClick={() => setNotesOpen(false)}
+                    id="btn-close-notes-panel"
+                    title="Close Notes"
+                  >
+                    ✕
+                  </button>
+                </div>
 
-            {/* Tab Content */}
-            <div className="notes-tab-content">
-              {activeTab === 'list' ? (
-                <NotesList
-                  notes={notes}
-                  loading={notesLoading}
-                  error={notesError}
-                  selectedNoteId={selectedNote?.id}
-                  onEditNote={handleEditNote}
-                  onNoteDeleted={handleNoteDeleted}
-                  secretKey={secretKey}
-                />
-              ) : (
-                <NoteEditor
-                  selectedNote={selectedNote}
-                  onNoteAdded={handleNoteAdded}
-                  onNoteUpdated={handleNoteUpdated}
-                  onCancelEdit={() => { setSelectedNote(null); setActiveTab('list'); }}
-                  secretKey={secretKey}
-                />
-              )}
-            </div>
+                <div className="notes-tabs">
+                  <button
+                    className={`notes-tab ${activeTab === 'list' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('list'); setSelectedNote(null); }}
+                    id="tab-my-notes"
+                  >
+                    My Notes
+                  </button>
+                  <button
+                    className={`notes-tab ${activeTab === 'add' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('add')}
+                    id="tab-add-note"
+                  >
+                    {selectedNote ? '✏️ Edit Note' : '+ Add Note'}
+                  </button>
+                </div>
+
+                <div className="notes-tab-content">
+                  {activeTab === 'list' ? (
+                    <NotesList
+                      notes={notes}
+                      loading={notesLoading}
+                      error={notesError}
+                      selectedNoteId={selectedNote?.id}
+                      onEditNote={handleEditNote}
+                      onNoteDeleted={handleNoteDeleted}
+                      secretKey={secretKey}
+                    />
+                  ) : (
+                    <NoteEditor
+                      selectedNote={selectedNote}
+                      onNoteAdded={handleNoteAdded}
+                      onNoteUpdated={handleNoteUpdated}
+                      onCancelEdit={() => { setSelectedNote(null); setActiveTab('list'); }}
+                      secretKey={secretKey}
+                    />
+                  )}
+                </div>
+              </div>
+            </aside>
+          </>
+        ) : (
+          <div className="unauthenticated-welcome" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: 20, textAlign: 'center', minHeight: '60vh', zIndex: 1 }}>
+            <div style={{ fontSize: 60, marginBottom: 20, animation: 'orbFloat 4s ease-in-out infinite' }}>🔒</div>
+            <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 10 }}>Access Gated</h2>
+            <p style={{ color: 'var(--text-secondary)', maxWidth: 400, fontSize: 14 }}>
+              Please enter your secret key in the onboarding modal to unlock your private personal AI notes assistant and chatbot.
+            </p>
           </div>
-        </aside>
+        )}
       </main>
     </div>
   );

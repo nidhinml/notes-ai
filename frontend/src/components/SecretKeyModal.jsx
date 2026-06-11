@@ -102,7 +102,7 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
 
   /* ─── Render ─── */
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose && onClose()}>
       <div className="modal-card modal-3d" role="dialog" aria-modal="true">
         <div className="modal-orb modal-orb-1" />
         <div className="modal-orb modal-orb-2" />
@@ -191,10 +191,12 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
               </button>
             </form>
 
-            <button className="btn-secondary" onClick={onClose}
-              style={{ width: '100%', marginTop: '10px' }} id="btn-cancel-modal">
-              Cancel — Stay in Chat
-            </button>
+            {onClose && (
+              <button className="btn-secondary" onClick={onClose}
+                style={{ width: '100%', marginTop: '10px' }} id="btn-cancel-modal">
+                Cancel — Stay in Chat
+              </button>
+            )}
           </div>
         )}
 
