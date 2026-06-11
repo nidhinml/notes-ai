@@ -264,9 +264,16 @@ export default function App() {
           <div className="unauthenticated-welcome" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: 20, textAlign: 'center', minHeight: '60vh', zIndex: 1 }}>
             <div style={{ fontSize: 60, marginBottom: 20, animation: 'orbFloat 4s ease-in-out infinite' }}>🔒</div>
             <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 10 }}>Access Gated</h2>
-            <p style={{ color: 'var(--text-secondary)', maxWidth: 400, fontSize: 14 }}>
+            <p style={{ color: 'var(--text-secondary)', maxWidth: 400, fontSize: 14, marginBottom: 10 }}>
               Please enter your secret key in the onboarding modal to unlock your private personal AI notes assistant and chatbot.
             </p>
+            <button 
+              className="btn-primary btn-glow" 
+              onClick={() => setShowKeyModal(true)}
+              style={{ marginTop: 20, padding: '12px 28px', fontSize: '15px', borderRadius: 'var(--r-md)', cursor: 'pointer', border: 'none', fontWeight: 600 }}
+            >
+              🔑 Enter Secret Key
+            </button>
           </div>
         )}
       </main>
