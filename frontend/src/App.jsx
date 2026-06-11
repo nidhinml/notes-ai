@@ -53,9 +53,15 @@ export default function App() {
     }
   }, []);
 
-  const validateCredentials = async (mobile, key, silent = false) => {
+  const validateCredentials = async (mobile, key, email, silent = false) => {
+    let realEmail = email;
+    let isSilent = silent;
+    if (typeof email === 'boolean') {
+      isSilent = email;
+      realEmail = undefined;
+    }
     try {
-      await axios.post('/api/auth/validate', { mobileNumber: mobile, secretKey: key });
+      await axios.post('/api/auth/validate', { mobileNumber: mobile, secretKey: key, email: realEmail });
       setSecretKey(key);
       setMobileNumber(mobile);
       localStorage.setItem(STORAGE_KEY, key);
@@ -64,7 +70,7 @@ export default function App() {
       setShowKeyModal(false);
       return true;
     } catch (err) {
-      if (!silent) throw err;
+      if (!isSilent) throw err;
       return false;
     }
   };
@@ -151,8 +157,8 @@ export default function App() {
       {/* ============ SECRET KEY MODAL ============ */}
       {showKeyModal && (
         <SecretKeyModal
-          onSuccess={(mobile, key) => {
-            validateCredentials(mobile, key).then(() => {
+          onSuccess={(mobile, key, email) => {
+            validateCredentials(mobile, key, email).then(() => {
               // Optionally do not auto-open the notes slide-out panel, just log them in
               setNotesOpen(false);
             }).catch(() => {});

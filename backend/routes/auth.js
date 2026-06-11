@@ -1,8 +1,18 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import nodemailer from 'nodemailer';
 import sql from '../db/index.js';
 
 const router = express.Router();
+
+// Setup Nodemailer transporter using SMTP (Gmail defaults)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 /**
  * POST /api/auth/check
@@ -50,13 +60,13 @@ router.post('/check', async (req, res) => {
 
 /**
  * POST /api/auth/validate
- * Body: { mobileNumber: string, secretKey: string }
+ * Body: { mobileNumber: string, secretKey: string, email?: string }
  * If mobile exists → check secretKey → login (return existing userId).
  * If mobile is new → create new user and return new userId.
  * Returns: { valid: true, userId, isNew }
  */
 router.post('/validate', async (req, res) => {
-  const { mobileNumber, secretKey } = req.body;
+  const { mobileNumber, secretKey, email } = req.body;
 
   if (!mobileNumber || mobileNumber.trim() === '') {
     return res.status(400).json({ error: 'Mobile number is required' });
@@ -82,17 +92,31 @@ router.post('/validate', async (req, res) => {
       }
     }
 
-    // Create a new user mapped to this mobile number and secret key
+    // New user registration requires an email
+    if (!email || email.trim() === '') {
+      return res.status(400).json({ error: 'Gmail address is required to register a new account.' });
+    }
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // Check if email is already taken by another user
+    const emailCheck = await sql(
+      'SELECT id FROM users WHERE email = $1',
+      [trimmedEmail]
+    );
+    if (emailCheck.length > 0) {
+      return res.status(400).json({ error: 'This Gmail address is already registered to another account.' });
+    }
+
+    // Create a new user mapped to this mobile number, email, and secret key
     const newUserId = uuidv4();
-    const mockEmail = `${trimmedMobile}-${Date.now()}@personal.ai`;
     const userName = `User-${trimmedMobile.slice(-4)}`;
 
     await sql(
       `INSERT INTO users (id, email, name, secret_key, mobile_number) VALUES ($1, $2, $3, $4, $5)`,
-      [newUserId, mockEmail, userName, trimmedKey, trimmedMobile]
+      [newUserId, trimmedEmail, userName, trimmedKey, trimmedMobile]
     );
 
-    console.log(`✓ New user created with mobile "${trimmedMobile}" → UUID: ${newUserId}`);
+    console.log(`✓ New user created with mobile "${trimmedMobile}" and email "${trimmedEmail}" → UUID: ${newUserId}`);
     return res.json({ valid: true, userId: newUserId, isNew: true });
   } catch (error) {
     console.error('Auth validate error:', error);
@@ -106,7 +130,7 @@ const activeOtps = new Map();
 /**
  * POST /api/auth/recover-request
  * Body: { mobileNumber: string }
- * Generates a mock OTP and returns it.
+ * Generates a mock OTP, emails it if configured, otherwise returns it.
  */
 router.post('/recover-request', async (req, res) => {
   const { mobileNumber } = req.body;
@@ -118,7 +142,7 @@ router.post('/recover-request', async (req, res) => {
 
   try {
     const matchedUsers = await sql(
-      'SELECT id FROM users WHERE mobile_number = $1',
+      'SELECT id, email FROM users WHERE mobile_number = $1',
       [trimmedMobile]
     );
 
@@ -126,17 +150,56 @@ router.post('/recover-request', async (req, res) => {
       return res.status(404).json({ error: 'This mobile number is not registered.' });
     }
 
-    // Generate a random 6-digit mock OTP
+    const userEmail = matchedUsers[0].email;
+
+    // Generate a random 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     activeOtps.set(trimmedMobile, otp);
 
-    console.log(`[SMS OTP MOCK] Sent OTP ${otp} to ${trimmedMobile}`);
+    console.log(`[SMS OTP MOCK] Generated OTP ${otp} for ${trimmedMobile} (Target Email: ${userEmail})`);
     
-    // For development, we return the OTP in the response body so the frontend can mock-simulate showing it.
+    let emailSent = false;
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        await transporter.sendMail({
+          from: `"Notes AI Recovery" <${process.env.EMAIL_USER}>`,
+          to: userEmail,
+          subject: 'Your Notes AI Verification Code',
+          text: `Hello,\n\nYour 6-digit verification code to recover your Notes AI Secret Key is: ${otp}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nNotes AI Team`,
+          html: `<div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 500px; margin: auto;">
+                   <h2 style="color: #7c5cfc; text-align: center;">Notes AI Key Recovery</h2>
+                   <p>Hello,</p>
+                   <p>You requested to recover your Notes AI Secret Key. Please use the following 6-digit verification code:</p>
+                   <div style="background: #f4f3ff; border: 1px solid #d9d6fe; border-radius: 6px; padding: 16px; font-size: 24px; font-weight: bold; letter-spacing: 4px; text-align: center; color: #7c5cfc; margin: 20px 0;">
+                     ${otp}
+                   </div>
+                   <p style="font-size: 13px; color: #666;">This code is valid for 10 minutes. If you did not request this recovery, you can safely ignore this email.</p>
+                   <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                   <p style="font-size: 11px; color: #999; text-align: center;">Notes AI - Your private, vector-powered assistant</p>
+                 </div>`
+        });
+        emailSent = true;
+      } catch (err) {
+        console.error('Nodemailer SMTP error:', err);
+      }
+    }
+
+    // Mask the email address in response
+    const atIdx = userEmail.indexOf('@');
+    let maskedEmail = userEmail;
+    if (atIdx > 2) {
+      maskedEmail = userEmail[0] + '*'.repeat(atIdx - 2) + userEmail[atIdx - 1] + userEmail.substring(atIdx);
+    }
+
     return res.json({ 
       success: true, 
-      otp, 
-      message: 'OTP sent successfully (mocked).' 
+      maskedEmail,
+      emailSent,
+      // If NOT configured, send the OTP in the body so they can test/develop it without SMTP credentials
+      ...(emailSent ? {} : { 
+        otp, 
+        warning: 'SMTP credentials missing. Mock OTP returned in response body for testing.' 
+      })
     });
   } catch (error) {
     console.error('Recover request error:', error);

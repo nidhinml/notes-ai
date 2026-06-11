@@ -37,11 +37,16 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
   const [suggested, setSuggested] = useState('');
   const [isNew, setIsNew]     = useState(false);
 
+  // Email state for registration
+  const [email, setEmail]     = useState('');
+
   // Forgot password/key recovery states
   const [forgotMobile, setForgotMobile] = useState('');
   const [otpCode, setOtpCode]           = useState('');
   const [mockOtpHint, setMockOtpHint]   = useState('');
   const [recoveredKey, setRecoveredKey] = useState('');
+  const [maskedEmail, setMaskedEmail]   = useState('');
+  const [emailSent, setEmailSent]       = useState(false);
 
   const mobileRef = useRef(null);
   const keyRef = useRef(null);
@@ -104,15 +109,20 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
   const handleValidate = async (mobileToUse, keyToUse) => {
     const m = mobileToUse || mobile.trim();
     const k = keyToUse || key.trim();
+    const e = email.trim();
     setLoading(true);
     setError(null);
     try {
-      await axios.post('/api/auth/validate', { mobileNumber: m, secretKey: k });
+      await axios.post('/api/auth/validate', { mobileNumber: m, secretKey: k, email: e });
       setStep('success');
-      setTimeout(() => onSuccess(m, k), 750);
+      setTimeout(() => onSuccess(m, k, e), 750);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed. Please try again.');
-      setStep('input');
+      if (isNew) {
+        setStep('confirm_new');
+      } else {
+        setStep('input');
+      }
     } finally {
       setLoading(false);
     }
@@ -127,7 +137,9 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
     setError(null);
     try {
       const { data } = await axios.post('/api/auth/recover-request', { mobileNumber: trimmed });
-      setMockOtpHint(data.otp);
+      setMaskedEmail(data.maskedEmail);
+      setEmailSent(data.emailSent);
+      setMockOtpHint(data.otp || '');
       setStep('forgot_verify');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to request recovery. Is the mobile number correct?');
@@ -308,6 +320,24 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
               </div>
             </div>
 
+            <div style={{ marginBottom: 16, textAlign: 'left' }}>
+              <label htmlFor="confirm-email-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+                📧 Your Gmail Address (For Key Recovery)
+              </label>
+              <input
+                id="confirm-email-input"
+                type="email"
+                className="modal-input"
+                style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', outline: 'none' }}
+                placeholder="e.g. nidhin@gmail.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                disabled={loading}
+                autoComplete="email"
+                required
+              />
+            </div>
+
             <div className="modal-save-reminder">
               <div className="save-reminder-icon">💾</div>
               <div>
@@ -320,7 +350,7 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
 
             <div className="modal-action-row">
               <button className="btn-primary btn-glow" onClick={() => handleValidate()}
-                disabled={loading} id="btn-create-account" style={{ flex: 1 }}>
+                disabled={loading || !email.trim()} id="btn-create-account" style={{ flex: 1 }}>
                 {loading ? <><span className="spinner" /> Creating…</> : <>🚀 Create Account</>}
               </button>
               <button className="btn-secondary" onClick={handleReset}
@@ -374,10 +404,15 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
           <div className="modal-step">
             <div className="modal-icon icon-3d">✉️</div>
             <h2>Enter Verification Code</h2>
-            <p>We've simulated sending an SMS to your mobile number. Enter the 6-digit OTP code below.</p>
+            <p style={{ marginBottom: 16 }}>
+              {emailSent 
+                ? `We have emailed a 6-digit OTP verification code to your registered Gmail: ${maskedEmail}. Check your inbox.`
+                : "We've simulated sending a code to your registered number. Enter the 6-digit OTP code below."
+              }
+            </p>
 
-            {/* Mock SMS Banner */}
-            {mockOtpHint && (
+            {/* Mock SMS Banner (Fallback when SMTP is not configured) */}
+            {!emailSent && mockOtpHint && (
               <div style={{ padding: '10px 14px', background: 'rgba(34, 197, 94, 0.08)', border: '1px dashed var(--success)', borderRadius: 'var(--r-sm)', color: 'var(--success)', fontSize: '13px', marginBottom: 16, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>📱</span>
                 <div>
