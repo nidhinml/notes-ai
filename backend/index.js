@@ -10,11 +10,11 @@ import authRouter from './routes/auth.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS setup allowing all origins
+// CORS setup allowing all origins and custom headers
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-secret-key']
 }));
 
 app.use(express.json());
