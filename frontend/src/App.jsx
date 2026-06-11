@@ -39,7 +39,11 @@ export default function App() {
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      validateKey(stored, true);
+      validateKey(stored, true).then(valid => {
+        if (!valid) {
+          setShowKeyModal(true);
+        }
+      });
     } else {
       // Force user to set/enter a key if none is stored
       setShowKeyModal(true);
