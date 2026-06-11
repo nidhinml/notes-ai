@@ -80,12 +80,31 @@ router.post('/validate', async (req, res) => {
 
   try {
     const matchedUsers = await sql(
-      'SELECT id, secret_key FROM users WHERE mobile_number = $1',
+      'SELECT id, secret_key, email FROM users WHERE mobile_number = $1',
       [trimmedMobile]
     );
 
     if (matchedUsers.length > 0) {
       if (matchedUsers[0].secret_key === trimmedKey) {
+        // If email is provided, verify and update/bind it to the existing account
+        if (email && email.trim() !== '') {
+          const trimmedEmail = email.trim().toLowerCase();
+          const currentEmail = matchedUsers[0].email || '';
+          if (currentEmail.includes('@personal.ai') || currentEmail !== trimmedEmail || currentEmail === '') {
+            // Verify email is not taken by another user
+            const emailCheck = await sql(
+              'SELECT id FROM users WHERE email = $1 AND id != $2',
+              [trimmedEmail, matchedUsers[0].id]
+            );
+            if (emailCheck.length === 0) {
+              await sql(
+                'UPDATE users SET email = $1 WHERE id = $2',
+                [trimmedEmail, matchedUsers[0].id]
+              );
+              console.log(`✓ Updated Gmail for existing user ${matchedUsers[0].id} to "${trimmedEmail}"`);
+            }
+          }
+        }
         return res.json({ valid: true, userId: matchedUsers[0].id, isNew: false });
       } else {
         return res.status(401).json({ error: 'Incorrect secret key for this mobile number.' });

@@ -225,6 +225,23 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
               </div>
 
               <div style={{ marginBottom: 16, textAlign: 'left' }}>
+                <label htmlFor="email-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+                  📧 Gmail Address (Required for New Users)
+                </label>
+                <input
+                  id="email-input"
+                  type="email"
+                  className="modal-input"
+                  style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', outline: 'none' }}
+                  placeholder="e.g. nidhin@gmail.com"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                  disabled={loading}
+                  autoComplete="email"
+                />
+              </div>
+
+              <div style={{ marginBottom: 16, textAlign: 'left' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <label htmlFor="secret-key-input" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
                     🔑 Secret Key
