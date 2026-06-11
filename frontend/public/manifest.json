@@ -1,0 +1,24 @@
+{
+  "short_name": "Notes AI",
+  "name": "Notes AI — Personal Assistant",
+  "description": "Your personal AI-powered notes assistant with RAG search. Privately gated with your secret key.",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='192' height='192'><rect width='100' height='100' rx='25' fill='%237c5cfc'/><text x='15' y='72' font-size='60'>🤖</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='512' height='512'><rect width='100' height='100' rx='25' fill='%237c5cfc'/><text x='15' y='72' font-size='60'>🤖</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#070a12",
+  "background_color": "#070a12",
+  "orientation": "portrait-primary"
+}
