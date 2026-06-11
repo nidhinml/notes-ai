@@ -6,11 +6,9 @@ const DEFAULT_USER_ID = process.env.DEFAULT_USER_ID || '00000000-0000-0000-0000-
 export async function authMiddleware(req, res, next) {
   const secretKey = req.headers['x-secret-key'];
 
-  // If no secret key is provided, default to the seeded test user
+  // Reject requests missing the unique secret key to prevent bypasses
   if (!secretKey || secretKey.trim() === '') {
-    req.user_id = DEFAULT_USER_ID;
-    req.secret_key = 'default-secret-seed-key-32-chars';
-    return next();
+    return res.status(401).json({ error: 'Authentication required. Please set your secret key.' });
   }
 
   try {
