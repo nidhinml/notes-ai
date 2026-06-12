@@ -8,15 +8,15 @@ const router = express.Router();
 // Setup Nodemailer transporter using SMTP (Gmail defaults)
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false, // false for port 587
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   },
-  connectionTimeout: 5000, // 5 seconds
-  greetingTimeout: 5000,
-  socketTimeout: 5000,
+  connectionTimeout: 10000, // Increase connection timeout to 10 seconds for reliability
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
   family: 4 // Force IPv4 to bypass Render's broken IPv6 network routes
 });
 
