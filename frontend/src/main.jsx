@@ -4,8 +4,9 @@ import App from './App.jsx'
 import './App.css'
 import axios from 'axios';
 
-// Set global axios backend base URL to target our live Render backend instance
-axios.defaults.baseURL = 'https://notes-ai-backend-o3jp.onrender.com';
+axios.defaults.baseURL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:3001'
+  : 'https://notes-ai-backend-o3jp.onrender.com';
 
 // Request interceptor to automatically add x-secret-key and x-mobile-number headers from localStorage
 axios.interceptors.request.use((config) => {
