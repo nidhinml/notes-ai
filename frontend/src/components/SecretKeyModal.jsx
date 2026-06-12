@@ -47,6 +47,8 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
   const [recoveredKey, setRecoveredKey] = useState('');
   const [maskedEmail, setMaskedEmail]   = useState('');
   const [emailSent, setEmailSent]       = useState(false);
+  const [emailConfigured, setEmailConfigured] = useState(true);
+  const [emailError, setEmailError] = useState('');
 
   const mobileRef = useRef(null);
   const keyRef = useRef(null);
@@ -139,6 +141,8 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
       const { data } = await axios.post('/api/auth/recover-request', { mobileNumber: trimmed });
       setMaskedEmail(data.maskedEmail);
       setEmailSent(data.emailSent);
+      setEmailConfigured(data.emailConfigured !== false);
+      setEmailError(data.emailError || '');
       setStep('forgot_verify');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to request recovery. Is the mobile number correct?');
@@ -421,10 +425,13 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
             <div className="modal-icon icon-3d">✉️</div>
             <h2>Enter Verification Code</h2>
             <p style={{ marginBottom: 20, fontSize: '14px', lineHeight: '1.5' }}>
-              {emailSent 
-                ? `We have emailed a 6-digit OTP verification code to your registered Gmail: ${maskedEmail}. Please check your inbox (and spam folder).`
-                : "SMTP mail server is not configured in .env. We have logged the verification OTP to the backend server terminal console for testing."
-              }
+              {emailSent ? (
+                `We have emailed a 6-digit OTP verification code to your registered Gmail: ${maskedEmail}. Please check your inbox (and spam folder).`
+              ) : emailConfigured ? (
+                `SMTP mail server is configured but failed to send the email: "${emailError}". We have logged the verification OTP to the backend server terminal console for testing.`
+              ) : (
+                "SMTP mail server is not configured in .env. We have logged the verification OTP to the backend server terminal console for testing."
+              )}
             </p>
 
             <form onSubmit={handleForgotVerify}>

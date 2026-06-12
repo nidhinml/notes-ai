@@ -180,8 +180,11 @@ router.post('/recover-request', async (req, res) => {
 
     console.log(`[SMS OTP MOCK] Generated OTP ${otp} for ${trimmedMobile} (Target Email: ${userEmail})`);
     
+    const emailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
     let emailSent = false;
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    let emailError = null;
+
+    if (emailConfigured) {
       try {
         await transporter.sendMail({
           from: `"Notes AI Recovery" <${process.env.EMAIL_USER}>`,
@@ -203,6 +206,7 @@ router.post('/recover-request', async (req, res) => {
         emailSent = true;
       } catch (err) {
         console.error('Nodemailer SMTP error:', err);
+        emailError = err.message || String(err);
       }
     }
 
@@ -213,14 +217,18 @@ router.post('/recover-request', async (req, res) => {
       maskedEmail = userEmail[0] + '*'.repeat(atIdx - 2) + userEmail[atIdx - 1] + userEmail.substring(atIdx);
     }
 
-    if (!emailSent) {
+    if (!emailConfigured) {
       console.log(`[SMS OTP MOCK] (SMTP missing) Recovery OTP for ${trimmedMobile} is: ${otp}`);
+    } else if (!emailSent) {
+      console.log(`[SMS OTP MOCK] (SMTP failed: ${emailError}) Recovery OTP for ${trimmedMobile} is: ${otp}`);
     }
 
     return res.json({ 
       success: true, 
       maskedEmail,
-      emailSent
+      emailConfigured,
+      emailSent,
+      emailError
     });
   } catch (error) {
     console.error('Recover request error:', error);
