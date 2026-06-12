@@ -183,11 +183,48 @@ router.post('/recover-request', async (req, res) => {
 
     console.log(`[SMS OTP MOCK] Generated OTP ${otp} for ${trimmedMobile} (Target Email: ${userEmail})`);
     
-    const emailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+    const emailConfigured = !!(process.env.RESEND_API_KEY || (process.env.EMAIL_USER && process.env.EMAIL_PASS));
     let emailSent = false;
     let emailError = null;
 
-    if (emailConfigured) {
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`
+          },
+          body: JSON.stringify({
+            from: 'Notes AI Recovery <onboarding@resend.dev>',
+            to: userEmail,
+            subject: 'Your Notes AI Verification Code',
+            html: `<div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; max-width: 500px; margin: auto;">
+                     <h2 style="color: #7c5cfc; text-align: center;">Notes AI Key Recovery</h2>
+                     <p>Hello,</p>
+                     <p>You requested to recover your Notes AI Secret Key. Please use the following 6-digit verification code:</p>
+                     <div style="background: #f4f3ff; border: 1px solid #d9d6fe; border-radius: 6px; padding: 16px; font-size: 24px; font-weight: bold; letter-spacing: 4px; text-align: center; color: #7c5cfc; margin: 20px 0;">
+                       ${otp}
+                     </div>
+                     <p style="font-size: 13px; color: #666;">This code is valid for 10 minutes. If you did not request this recovery, you can safely ignore this email.</p>
+                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                     <p style="font-size: 11px; color: #999; text-align: center;">Notes AI - Your private, vector-powered assistant</p>
+                   </div>`
+          })
+        });
+
+        const resData = await response.json();
+        if (response.ok && resData.id) {
+          emailSent = true;
+        } else {
+          emailError = resData.message || JSON.stringify(resData);
+          console.error('Resend API error:', resData);
+        }
+      } catch (err) {
+        console.error('Resend fetch error:', err);
+        emailError = err.message || String(err);
+      }
+    } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       try {
         await transporter.sendMail({
           from: `"Notes AI Recovery" <${process.env.EMAIL_USER}>`,
@@ -221,9 +258,9 @@ router.post('/recover-request', async (req, res) => {
     }
 
     if (!emailConfigured) {
-      console.log(`[SMS OTP MOCK] (SMTP missing) Recovery OTP for ${trimmedMobile} is: ${otp}`);
+      console.log(`[SMS OTP MOCK] (SMTP/Resend missing) Recovery OTP for ${trimmedMobile} is: ${otp}`);
     } else if (!emailSent) {
-      console.log(`[SMS OTP MOCK] (SMTP failed: ${emailError}) Recovery OTP for ${trimmedMobile} is: ${otp}`);
+      console.log(`[SMS OTP MOCK] (Email failed: ${emailError}) Recovery OTP for ${trimmedMobile} is: ${otp}`);
     }
 
     return res.json({ 
