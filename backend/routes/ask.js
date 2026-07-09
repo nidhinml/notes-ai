@@ -59,41 +59,66 @@ router.post('/', async (req, res) => {
     }));
 
     // Hybrid filter list using decrypted note objects
-    let finalNotes = [...decryptedMatchedNotes];
+    let finalNotes = [];
 
     if (cleanQuery.includes('recent') || cleanQuery.includes('last notes') || cleanQuery.includes('summarize')) {
       // If user asks for recent notes, prioritize by creation date
       finalNotes = decryptedAllNotes.slice(0, 5);
     } else {
-      // Look for notes containing direct keywords (e.g. "meeting", "task", "todo", "week")
-      const keywords = [];
-      if (cleanQuery.includes('meeting')) keywords.push('meeting');
-      if (cleanQuery.includes('task') || cleanQuery.includes('todo') || cleanQuery.includes('to-do')) {
-        keywords.push('task', 'todo', 'to-do');
-      }
-      if (cleanQuery.includes('week') || cleanQuery.includes('day') || cleanQuery.includes('birthday')) {
-        keywords.push('week', 'day', 'birthday', 'date', '1997', 'january');
-      }
+      // Dynamic keyword matching and scoring
+      const stopwords = new Set([
+        'what', 'is', 'the', 'a', 'an', 'on', 'in', 'at', 'my', 'your', 'for', 'to', 'of', 'and', 'or', 
+        'with', 'when', 'where', 'who', 'how', 'why', 'did', 'does', 'do', 'has', 'have', 'had', 
+        'are', 'was', 'were', 'be', 'been', 'about', 'this', 'that', 'these', 'those', 'then', 'there',
+        'some', 'any', 'from', 'by', 'here', 'me', 'you', 'i', 'we', 'they', 'he', 'she', 'it', 'us'
+      ]);
 
-      if (keywords.length > 0) {
-        const keywordMatched = decryptedAllNotes.filter(note => {
-          const titleLower = note.title.toLowerCase();
-          const contentLower = note.content.toLowerCase();
-          return keywords.some(kw => titleLower.includes(kw) || contentLower.includes(kw));
+      const queryTerms = cleanQuery
+        .split(/[^a-z0-9]+/)
+        .filter(term => term.length >= 2 && !stopwords.has(term));
+
+      let keywordMatchedNotes = [];
+
+      if (queryTerms.length > 0) {
+        const notesWithScores = decryptedAllNotes.map(note => {
+          let score = 0;
+          const titleLower = (note.title || '').toLowerCase();
+          const contentLower = (note.content || '').toLowerCase();
+
+          for (const term of queryTerms) {
+            // High weight for title matches
+            if (titleLower.includes(term)) {
+              score += 20;
+            }
+            // Score based on occurrences in content
+            const escapedTerm = term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(escapedTerm, 'g');
+            const matches = contentLower.match(regex);
+            if (matches) {
+              score += matches.length * 5;
+            }
+          }
+
+          return { ...note, score };
         });
 
-        // Merge and deduplicate (keeping semantic hits first, then prepending keyword matches)
-        const combined = [...keywordMatched, ...finalNotes];
-        const unique = [];
-        const seen = new Set();
-        for (const n of combined) {
-          if (!seen.has(n.id)) {
-            seen.add(n.id);
-            unique.push(n);
-          }
-        }
-        finalNotes = unique.slice(0, 5);
+        // Filter out zero scores and sort by highest score
+        keywordMatchedNotes = notesWithScores
+          .filter(n => n.score > 0)
+          .sort((a, b) => b.score - a.score);
       }
+
+      // Merge keyword matches first, then fill up with semantic results
+      const combined = [...keywordMatchedNotes, ...decryptedMatchedNotes];
+      const unique = [];
+      const seen = new Set();
+      for (const n of combined) {
+        if (!seen.has(n.id)) {
+          seen.add(n.id);
+          unique.push(n);
+        }
+      }
+      finalNotes = unique.slice(0, 5);
     }
 
     // If no notes are found at all, return default response
