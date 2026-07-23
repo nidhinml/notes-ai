@@ -64,9 +64,9 @@ router.post('/', async (req, res) => {
     res.status(201).json(createdNote);
   } catch (error) {
     console.error('Error creating note:', error);
-    const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
+    const isApiKeyError = error.status === 400 || error.status === 401 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
     const message = isApiKeyError
-      ? 'Invalid DeepSeek API key configured in backend/.env. Please replace it with a valid key.'
+      ? 'Invalid NVIDIA API key configured in backend/.env. Please replace it with a valid key.'
       : 'Failed to create note';
     res.status(500).json({ error: message });
   }
@@ -110,9 +110,9 @@ router.put('/:id', async (req, res) => {
     res.json(updatedNote);
   } catch (error) {
     console.error('Error updating note:', error);
-    const isApiKeyError = error.status === 400 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
+    const isApiKeyError = error.status === 400 || error.status === 401 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
     const message = isApiKeyError
-      ? 'Invalid DeepSeek API key configured in backend/.env. Please replace it with a valid key.'
+      ? 'Invalid NVIDIA API key configured in backend/.env. Please replace it with a valid key.'
       : 'Failed to update note';
     res.status(500).json({ error: message });
   }

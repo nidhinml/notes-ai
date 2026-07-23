@@ -3,17 +3,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// DeepSeek API key is stored in process.env.OPENAI_API_KEY
-const DEEPSEEK_API_KEY = process.env.OPENAI_API_KEY;
+// NVIDIA API key is stored in process.env.NVIDIA_API_KEY
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 
 const openai = new OpenAI({
-  apiKey: DEEPSEEK_API_KEY,
-  baseURL: 'https://api.deepseek.com/v1',
+  apiKey: NVIDIA_API_KEY,
+  baseURL: 'https://integrate.api.nvidia.com/v1',
 });
 
 /**
  * Generate vector embedding for a given text.
- * Since DeepSeek does not offer an embedding API, we generate a consistent mock
+ * Since we are using an LLM endpoint that might not offer an embedding API natively in the same way, we generate a consistent mock
  * 1536-dimensional embedding vector so the database queries (which require a 1536-dim vector)
  * function seamlessly.
  * 
@@ -69,7 +69,7 @@ export async function embedText(text) {
 }
 
 /**
- * Generate a conversational response using DeepSeek Chat based ONLY on retrieved note context chunks
+ * Generate a conversational response using NVIDIA NIM Llama based ONLY on retrieved note context chunks
  * @param {string} question - The user question
  * @param {Array<object>} contextChunks - Array of note chunks { title, chunk_text }
  * @returns {Promise<string>} - The LLM answer
@@ -86,7 +86,7 @@ export async function askLLM(question, contextChunks) {
     const userContent = `Context:\n"""\n${formattedChunks}\n"""\n\nQuestion: ${question}`;
 
     const response = await openai.chat.completions.create({
-      model: 'deepseek-chat',
+      model: 'meta/llama-3.1-8b-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
@@ -97,7 +97,7 @@ export async function askLLM(question, contextChunks) {
 
     return response.choices[0].message.content;
   } catch (error) {
-    console.error('Error generating DeepSeek chat response:', error);
+    console.error('Error generating NVIDIA NIM chat response:', error);
     throw error;
   }
 }
