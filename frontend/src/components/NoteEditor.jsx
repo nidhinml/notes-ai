@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export default function NoteEditor({ selectedNote, onNoteAdded, onNoteUpdated, onCancelEdit, secretKey }) {
+export default function NoteEditor({ selectedNote, onNoteAdded, onNoteUpdated, onCancelEdit, secretKey, mobileNumber }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
@@ -21,7 +21,10 @@ export default function NoteEditor({ selectedNote, onNoteAdded, onNoteUpdated, o
     }
   }, [selectedNote]);
 
-  const headers = { 'x-secret-key': secretKey || '' };
+  const headers = { 
+    'x-secret-key': secretKey || '',
+    'x-mobile-number': mobileNumber || ''
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

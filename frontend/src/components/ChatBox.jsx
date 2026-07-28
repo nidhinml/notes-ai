@@ -25,7 +25,7 @@ const LIGHT_CARDS = [
   { top: '80%', right: '20%', w: 100, h: 60,  rot: '-14deg', dur: 19, delay: -12 },
 ];
 
-export default function ChatBox({ secretKey }) {
+export default function ChatBox({ secretKey, mobileNumber }) {
   // Use a user-specific key so chat history is kept separate per key profile
   const storageKey = `chat_history_${secretKey || 'default'}`;
 
@@ -68,7 +68,8 @@ export default function ChatBox({ secretKey }) {
     try {
       const headers = {
         'Content-Type': 'application/json',
-        ...(secretKey ? { 'x-secret-key': secretKey } : {})
+        ...(secretKey ? { 'x-secret-key': secretKey } : {}),
+        ...(mobileNumber ? { 'x-mobile-number': mobileNumber } : {})
       };
       
       const baseUrl = import.meta.env.VITE_API_URL || '';
@@ -79,13 +80,16 @@ export default function ChatBox({ secretKey }) {
       });
 
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        let errText = '';
+        try { errText = await response.text(); } catch(e) {}
+        throw new Error(`HTTP ${response.status}. ${errText.substring(0, 100)}`);
       }
 
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('text/event-stream')) {
-        console.error('Invalid content type received:', contentType);
-        throw new Error(`Expected an event stream but received ${contentType}. Your backend is either not running or needs to be restarted.`);
+        let errText = '';
+        try { errText = await response.text(); } catch(e) {}
+        throw new Error(`Not an event stream. Status: ${response.status}, Type: "${contentType}", Body: ${errText.substring(0, 100)}`);
       }
 
       const aiMessageId = (Date.now() + 1).toString();

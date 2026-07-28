@@ -82,12 +82,12 @@ export default function App() {
   // Fetch notes (only when authenticated)
   // -------------------------------------------------------
   const fetchNotes = useCallback(async () => {
-    if (!secretKey) return;
+    if (!secretKey || !mobileNumber) return;
     setNotesLoading(true);
     setNotesError(null);
     try {
       const { data } = await axios.get('/api/notes', {
-        headers: { 'x-secret-key': secretKey }
+        headers: { 'x-secret-key': secretKey, 'x-mobile-number': mobileNumber }
       });
       setNotes(data);
     } catch (err) {
@@ -216,7 +216,7 @@ export default function App() {
         {isAuthenticated ? (
           <>
             <div className="chat-panel">
-              <ChatBox secretKey={secretKey} />
+              <ChatBox secretKey={secretKey} mobileNumber={mobileNumber} />
             </div>
 
             <aside className={`notes-panel ${notesOpen ? 'open' : ''}`}>
@@ -262,6 +262,7 @@ export default function App() {
                       onEditNote={handleEditNote}
                       onNoteDeleted={handleNoteDeleted}
                       secretKey={secretKey}
+                      mobileNumber={mobileNumber}
                     />
                   ) : (
                     <NoteEditor
@@ -270,6 +271,7 @@ export default function App() {
                       onNoteUpdated={handleNoteUpdated}
                       onCancelEdit={() => { setSelectedNote(null); setActiveTab('list'); }}
                       secretKey={secretKey}
+                      mobileNumber={mobileNumber}
                     />
                   )}
                 </div>

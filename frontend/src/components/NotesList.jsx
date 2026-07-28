@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-export default function NotesList({ notes, loading, error, selectedNoteId, onEditNote, onNoteDeleted, secretKey }) {
+export default function NotesList({ notes, loading, error, selectedNoteId, onEditNote, onNoteDeleted, secretKey, mobileNumber }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
 
-  const headers = { 'x-secret-key': secretKey || '' };
+  const headers = { 
+    'x-secret-key': secretKey || '',
+    'x-mobile-number': mobileNumber || ''
+  };
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
