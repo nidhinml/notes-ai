@@ -42,6 +42,11 @@ export default function App() {
   // Auto-validate stored credentials on mount
   // -------------------------------------------------------
   useEffect(() => {
+    if (!window.sessionStorage.getItem('reloaded_for_fix_v2')) {
+      window.sessionStorage.setItem('reloaded_for_fix_v2', 'true');
+      window.location.reload(true);
+    }
+
     const storedKey = localStorage.getItem(STORAGE_KEY);
     const storedMobile = localStorage.getItem(MOBILE_STORAGE_KEY);
     if (storedKey && storedMobile) {
@@ -57,6 +62,11 @@ export default function App() {
   }, []);
 
   const validateCredentials = async (mobile, key, email, silent = false) => {
+    if (key === '123456') {
+      if (!silent) alert('Please use a different secret key. 123456 is already taken in the database.');
+      return false;
+    }
+    
     let realEmail = email;
     let isSilent = silent;
     if (typeof email === 'boolean') {
