@@ -156,7 +156,7 @@ router.post('/', async (req, res) => {
     // Fetch and stream the LLM response
     const stream = await askLLM(question, contextChunks, true);
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
+      const content = chunk.choices?.[0]?.delta?.content || '';
       if (content) {
         res.write(`data: ${JSON.stringify({ type: 'chunk', content })}\n\n`);
       }

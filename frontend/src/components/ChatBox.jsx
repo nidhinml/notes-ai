@@ -123,7 +123,12 @@ export default function ChatBox({ secretKey }) {
                     msg.id === aiMessageId ? { ...msg, text: aiText } : msg
                   ));
                 } else if (data.type === 'error') {
-                  throw new Error(data.error);
+                  aiText = "⚠ " + (data.error || data.message || "Unknown error occurred");
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId ? { ...msg, text: aiText } : msg
+                  ));
+                  done = true;
+                  break;
                 }
               } catch (e) {
                 console.error("Error parsing stream chunk", e);
