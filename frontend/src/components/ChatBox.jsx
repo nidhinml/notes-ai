@@ -81,6 +81,12 @@ export default function ChatBox({ secretKey }) {
         throw new Error('Network response was not ok');
       }
 
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('text/event-stream')) {
+        console.error('Invalid content type received:', contentType);
+        throw new Error(`Expected an event stream but received ${contentType}. Your backend is either not running or needs to be restarted.`);
+      }
+
       const aiMessageId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, {
         id: aiMessageId,
@@ -143,7 +149,7 @@ export default function ChatBox({ secretKey }) {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: "⚠ Sorry, I couldn't generate a response. Please check your server connection.",
+        text: `⚠ ${err.message}`,
         sources: [],
       }]);
     } finally {
