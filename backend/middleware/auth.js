@@ -52,6 +52,6 @@ export async function authMiddleware(req, res, next) {
     next();
   } catch (error) {
     console.error('Error in authentication middleware:', error);
-    res.status(500).json({ error: 'Database authentication failed' });
+    res.status(500).json({ error: 'Database authentication failed', details: error.message || String(error) });
   }
 }
