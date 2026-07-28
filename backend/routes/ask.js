@@ -123,10 +123,14 @@ router.post('/', async (req, res) => {
 
     // If no notes are found at all, return default response
     if (finalNotes.length === 0) {
-      return res.json({
-        answer: 'You have no notes yet. Start by adding some notes!',
-        sources: []
-      });
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      
+      res.write(`data: ${JSON.stringify({ type: 'sources', sources: [] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'chunk', content: 'You have no notes yet. Start by adding some notes!' })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      return res.end();
     }
 
     // 3. Build context chunks from retrieved notes
