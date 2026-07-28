@@ -29,15 +29,21 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+  // Bypass caching for API endpoints and SSE streams
+  if (e.request.url.includes('/api/')) {
+    return;
+  }
+
   // Use Network-First strategy so clients get updates immediately
   e.respondWith(
     fetch(e.request)
       .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
+        // Only cache GET requests (Cache API does not support POST)
+        if (e.request.method === 'GET' && response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(e.request, responseToCache);
-          });
+          }).catch(err => console.error('Cache error:', err));
         }
         return response;
       })

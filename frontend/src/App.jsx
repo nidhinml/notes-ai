@@ -64,7 +64,13 @@ export default function App() {
       realEmail = undefined;
     }
     try {
-      await axios.post('/api/auth/validate', { mobileNumber: mobile, secretKey: key, email: realEmail });
+      const response = await axios.post('/api/auth/validate', { mobileNumber: mobile, secretKey: key, email: realEmail });
+      
+      // Prevent false logins if Vite dev server falls back to returning index.html
+      if (typeof response.data === 'string' && response.data.includes('<html')) {
+        throw new Error('Backend is not reachable (received HTML fallback). Please check your server connection.');
+      }
+      
       setSecretKey(key);
       setMobileNumber(mobile);
       localStorage.setItem(STORAGE_KEY, key);
