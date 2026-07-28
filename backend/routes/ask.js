@@ -135,23 +135,45 @@ router.post('/', async (req, res) => {
       chunk_text: note.content // Pass decrypted content for complete context
     }));
 
-    // 4. Generate answer string using OpenAI Chat API
-    const answer = await askLLM(question, contextChunks);
-
-    // 5. Compile unique sources response array
+    // 4. Compile unique sources response array
     const sources = finalNotes.map(note => ({
       id: note.id,
       title: note.title
     }));
 
-    res.json({ answer, sources });
+    // 5. Setup SSE headers and stream the response
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Send sources first
+    res.write(`data: ${JSON.stringify({ type: 'sources', sources })}\n\n`);
+
+    // Fetch and stream the LLM response
+    const stream = await askLLM(question, contextChunks, true);
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        res.write(`data: ${JSON.stringify({ type: 'chunk', content })}\n\n`);
+      }
+    }
+
+    res.write(`data: [DONE]\n\n`);
+    res.end();
   } catch (error) {
     console.error('Error in ask handler:', error);
     const isApiKeyError = error.status === 400 || error.status === 401 || error.status === 403 || error.message?.includes('API key') || error.message?.toLowerCase().includes('key');
     const message = isApiKeyError
       ? 'Invalid NVIDIA API key configured in backend/.env. Please replace it with a valid key.'
       : 'Failed to process ask query';
-    res.status(500).json({ error: message });
+      
+    if (res.headersSent) {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    } else {
+      res.status(500).json({ error: message });
+    }
   }
 });
 

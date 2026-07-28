@@ -72,9 +72,10 @@ export async function embedText(text) {
  * Generate a conversational response using NVIDIA NIM Llama based ONLY on retrieved note context chunks
  * @param {string} question - The user question
  * @param {Array<object>} contextChunks - Array of note chunks { title, chunk_text }
- * @returns {Promise<string>} - The LLM answer
+ * @param {boolean} stream - Whether to stream the response
+ * @returns {Promise<string|Object>} - The LLM answer string or the stream object
  */
-export async function askLLM(question, contextChunks) {
+export async function askLLM(question, contextChunks, stream = false) {
   try {
     const formattedChunks = contextChunks.length > 0
       ? contextChunks.map(chunk => `Note: ${chunk.title}\n${chunk.chunk_text}`).join('\n\n---\n\n')
@@ -93,7 +94,12 @@ export async function askLLM(question, contextChunks) {
       ],
       max_tokens: 500,
       temperature: 0.3,
+      stream: stream,
     });
+
+    if (stream) {
+      return response;
+    }
 
     return response.choices[0].message.content;
   } catch (error) {
@@ -101,4 +107,3 @@ export async function askLLM(question, contextChunks) {
     throw error;
   }
 }
-

@@ -66,14 +66,72 @@ export default function ChatBox({ secretKey }) {
     setLoading(true);
 
     try {
-      const headers = secretKey ? { 'x-secret-key': secretKey } : {};
-      const { data } = await axios.post('/api/ask', { question: queryText.trim() }, { headers });
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(secretKey ? { 'x-secret-key': secretKey } : {})
+      };
+      
+      const response = await fetch('/api/ask', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ question: queryText.trim() })
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const aiMessageId = (Date.now() + 1).toString();
       setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
+        id: aiMessageId,
         sender: 'ai',
-        text: data.answer,
-        sources: data.sources || [],
+        text: '',
+        sources: [],
       }]);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let done = false;
+      let aiText = '';
+      let buffer = '';
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // keep the last partial line in buffer
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6);
+              if (dataStr === '[DONE]') {
+                done = true;
+                break;
+              }
+              
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.type === 'sources') {
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId ? { ...msg, sources: data.sources } : msg
+                  ));
+                } else if (data.type === 'chunk') {
+                  aiText += data.content;
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId ? { ...msg, text: aiText } : msg
+                  ));
+                } else if (data.type === 'error') {
+                  throw new Error(data.error);
+                }
+              } catch (e) {
+                console.error("Error parsing stream chunk", e);
+              }
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Ask error:', err);
       setError('Failed to reach AI. Please check your backend.');
