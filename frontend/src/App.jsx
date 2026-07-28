@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
 import './App.css';
 import ChatBox from './components/ChatBox';
 import NoteEditor from './components/NoteEditor';

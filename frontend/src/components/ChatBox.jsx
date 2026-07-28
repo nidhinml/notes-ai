@@ -71,7 +71,8 @@ export default function ChatBox({ secretKey }) {
         ...(secretKey ? { 'x-secret-key': secretKey } : {})
       };
       
-      const response = await fetch('/api/ask', {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${baseUrl}/api/ask`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ question: queryText.trim() })
