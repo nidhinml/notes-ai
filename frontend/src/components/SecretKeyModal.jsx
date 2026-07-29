@@ -229,7 +229,7 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
 
               <div style={{ marginBottom: 16, textAlign: 'left' }}>
                 <label htmlFor="email-input" style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
-                  📧 Gmail Address (Required for New Users)
+                  📧 Gmail Address (Optional, for Key Recovery)
                 </label>
                 <input
                   id="email-input"
@@ -354,7 +354,6 @@ export default function SecretKeyModal({ onSuccess, onClose }) {
                 onChange={(e) => { setEmail(e.target.value); setError(null); }}
                 disabled={loading}
                 autoComplete="email"
-                required
               />
             </div>
 
