@@ -117,19 +117,18 @@ router.post('/validate', async (req, res) => {
       }
     }
 
-    // New user registration requires an email
-    if (!email || email.trim() === '') {
-      return res.status(400).json({ error: 'Gmail address is required to register a new account.' });
-    }
-    const trimmedEmail = email.trim().toLowerCase();
+    // If no email is provided, generate a unique mock email
+    let trimmedEmail = email ? email.trim().toLowerCase() : `${trimmedMobile}-${Date.now()}@personal.ai`;
 
-    // Check if email is already taken by another user
-    const emailCheck = await sql(
-      'SELECT id FROM users WHERE email = $1',
-      [trimmedEmail]
-    );
-    if (emailCheck.length > 0) {
-      return res.status(400).json({ error: 'This Gmail address is already registered to another account.' });
+    // Check if email is already taken by another user (only relevant if they actually provided one)
+    if (email && email.trim() !== '') {
+      const emailCheck = await sql(
+        'SELECT id FROM users WHERE email = $1',
+        [trimmedEmail]
+      );
+      if (emailCheck.length > 0) {
+        return res.status(400).json({ error: 'This Gmail address is already registered to another account.' });
+      }
     }
 
     // Create a new user mapped to this mobile number, email, and secret key

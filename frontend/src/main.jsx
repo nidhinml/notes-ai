@@ -4,9 +4,9 @@ import App from './App.jsx'
 import './App.css'
 import axios from 'axios';
 
-axios.defaults.baseURL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'http://localhost:3001'
-  : 'https://notes-ai-backend-o3jp.onrender.com';
+// Use relative path for all API calls to ensure they go through the Vite proxy during dev,
+// and hit the same origin during production.
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
 // Request interceptor to automatically add x-secret-key and x-mobile-number headers from localStorage
 axios.interceptors.request.use((config) => {
